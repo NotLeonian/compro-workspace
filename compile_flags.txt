@@ -1,1 +1,11 @@
 -std=gnu++23
+-I
+libraries/ac-library
+-I
+libraries/ei1333
+-I
+libraries/nyaan
+-I
+libraries/suisen
+-I
+libraries/niche-library
