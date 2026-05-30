@@ -7,3 +7,6 @@
 [submodule "libraries/nyaan"]
 	path = libraries/nyaan
 	url = https://github.com/NotLeonian/Nyaan-Library
+[submodule "libraries/suisen"]
+	path = libraries/suisen
+	url = https://github.com/NotLeonian/cp-library-cpp
