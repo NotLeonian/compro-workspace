@@ -1,0 +1,8 @@
+{
+	"clangd.arguments": [
+		"--header-insertion=never",
+		"--function-arg-placeholders=false",
+		"--clang-tidy=false",
+		"--completion-style=bundled"
+	]
+}
