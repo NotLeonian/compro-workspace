@@ -402,6 +402,9 @@ ceil_div_mod(T1 x, T2 y) {
             q += 1;
             r -= b;
         }
+    } else {
+        q += 1;
+        r -= b;
     }
 
     return pair{q, r};
