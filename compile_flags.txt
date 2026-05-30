@@ -9,3 +9,5 @@ libraries/nyaan
 libraries/suisen
 -I
 libraries/niche-library
+-I
+libraries/precompile
