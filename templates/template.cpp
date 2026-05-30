@@ -51,7 +51,7 @@ using mint = modint998244353;
 #define do_while1(cond)                                                        \
     for (bool is_first = true; is_first || (cond); is_first = false)
 #define do_while2(cond, is_first)                                              \
-    for (bool is_first = true, is_first || (cond); is_first = false)
+    for (bool is_first = true; is_first || (cond); is_first = false)
 #define do_while(...)                                                          \
     do_while_kind(__VA_ARGS__, do_while2, do_while1)(__VA_ARGS__)
 
