@@ -212,6 +212,10 @@ void out(const Hd &hd, const Tl &...tl) {
     }
 }
 
+template <class... T> void out_and_flush(const T &...args) {
+    out<true>(args...);
+}
+
 template <class Hd, class... Tl> void err(const Hd &hd, const Tl &...tl) {
 #ifndef ONLINE_JUDGE
     cerr << hd;
