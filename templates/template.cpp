@@ -140,23 +140,44 @@ ostream &operator<<(ostream &os, const tuple<T1, T2, T3> &t3) {
 }
 
 template <class T>
-concept char_range = ranges::input_range<T> &&
-                     same_as<remove_cv_t<ranges::range_value_t<T>>, char>;
-
+concept char_range =
+    ranges::input_range<T> && same_as<ranges::range_value_t<T>, char>;
 template <class T>
 concept nonstring_range =
-    (ranges::input_range<T> || ranges::input_range<const T>) &&
-    !is_convertible_v<T, string_view> && !char_range<T> && !char_range<const T>;
+    ranges::input_range<T> &&
+    !is_convertible_v<remove_cvref_t<T>, string_view> && !char_range<T>;
+template <class R>
+concept writable_lvalue_range =
+    is_lvalue_reference_v<ranges::range_reference_t<R>> &&
+    !is_const_v<remove_reference_t<ranges::range_reference_t<R>>>;
+template <class R>
+concept proxy_writable_range =
+    !is_lvalue_reference_v<ranges::range_reference_t<R>> &&
+    !same_as<remove_cvref_t<ranges::range_reference_t<R>>,
+             ranges::range_value_t<R>> &&
+    default_initializable<ranges::range_value_t<R>> &&
+    requires(ranges::range_reference_t<R> e, ranges::range_value_t<R> v) {
+        e = std::move(v);
+    };
+template <class R>
+concept inputtable_nonstring_range =
+    nonstring_range<R> && (writable_lvalue_range<R> || proxy_writable_range<R>);
 
-template <nonstring_range T> istream &operator>>(istream &is, T &r) {
-    for (auto &e : r) {
-        is >> e;
+template <inputtable_nonstring_range T> istream &operator>>(istream &is, T &r) {
+    for (auto &&e : r) {
+        if constexpr (writable_lvalue_range<T>) {
+            is >> e;
+        } else {
+            ranges::range_value_t<T> v{};
+            is >> v;
+            e = std::move(v);
+        }
     }
     return is;
 }
-template <nonstring_range T> ostream &operator<<(ostream &os, const T &r) {
+template <nonstring_range T> ostream &operator<<(ostream &os, T &&r) {
     bool is_first = true;
-    for (auto &e : r) {
+    for (auto &&e : r) {
         if (is_first) {
             is_first = false;
         } else {
