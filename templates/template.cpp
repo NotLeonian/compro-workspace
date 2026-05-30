@@ -382,46 +382,16 @@ constexpr div_detail::div_type_t<T1, T2> floor_mod(T1 x, T2 y) {
     assert(y != 0);
     return floor_div_mod(x, y).second;
 }
-
-template <class T1, class T2>
-constexpr pair<div_detail::div_type_t<T1, T2>, div_detail::div_type_t<T1, T2>>
-ceil_div_mod(T1 x, T2 y) {
-    static_assert(div_detail::integral_non_bool_v<T1>);
-    static_assert(div_detail::integral_non_bool_v<T2>);
-    assert(y != 0);
-
-    using T = div_detail::div_type_t<T1, T2>;
-    assert(div_detail::fits_in_div_type<T>(x));
-    assert(div_detail::fits_in_div_type<T>(y));
-
-    T a = static_cast<T>(x), b = static_cast<T>(y);
-    T q = a / b, r = a % b;
-
-    if constexpr (is_signed_v<T>) {
-        if (r != 0 && ((r > 0) == (b > 0))) {
-            q += 1;
-            r -= b;
-        }
-    } else if (r != 0) {
-        q += 1;
-        r -= b;
-    }
-
-    return pair{q, r};
-}
 template <class T1, class T2>
 constexpr div_detail::div_type_t<T1, T2> ceil_div(T1 x, T2 y) {
     static_assert(div_detail::integral_non_bool_v<T1>);
     static_assert(div_detail::integral_non_bool_v<T2>);
     assert(y != 0);
-    return ceil_div_mod(x, y).first;
-}
-template <class T1, class T2>
-constexpr div_detail::div_type_t<T1, T2> ceil_mod(T1 x, T2 y) {
-    static_assert(div_detail::integral_non_bool_v<T1>);
-    static_assert(div_detail::integral_non_bool_v<T2>);
-    assert(y != 0);
-    return ceil_div_mod(x, y).second;
+
+    using T = div_detail::div_type_t<T1, T2>;
+
+    auto [q, r] = floor_div_mod(x, y);
+    return r == 0 ? q : static_cast<T>(q + T{1});
 }
 
 template <class T, size_t N>
