@@ -89,10 +89,14 @@ struct separator {
 };
 inline separator sep(string s) { return {std::move(s)}; }
 inline void cleanup(ios_base::event ev, ios_base &ios, int idx) {
-    if (ev == ios_base::erase_event || ev == ios_base::copyfmt_event) {
-        void *&slot = ios.pword(idx);
+    void *&slot = ios.pword(idx);
+    if (ev == ios_base::erase_event) {
         delete static_cast<string *>(slot);
         slot = nullptr;
+    } else if (ev == ios_base::copyfmt_event) {
+        if (auto *p = static_cast<string *>(slot); p) {
+            slot = new string(*p);
+        }
     }
 }
 inline ostream &operator<<(ostream &os, const separator &m) {
@@ -501,7 +505,8 @@ template <class T, template <class...> class Heap = priority_queue>
 using min_heap = Heap<T, vector<T>, greater<>>;
 
 template <class S, S e> constexpr S e_const() { return e; }
-template <class S1, S1 e1, class S2, S2 e2> constexpr pair<S1, S2> e_const_pair() {
+template <class S1, S1 e1, class S2, S2 e2>
+constexpr pair<S1, S2> e_const_pair() {
     return {e1, e2};
 }
 template <class S> S op_min(S a, S b) { return min(a, b); }
