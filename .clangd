@@ -1,0 +1,8 @@
+Diagnostics:
+  Includes:
+    IgnoreHeader:
+      - ".*fps/ntt-friendly-fps\\.hpp"
+  Suppress: [unqualified-std-cast-call]
+
+CompileFlags:
+  Compiler: usr/bin/g++
