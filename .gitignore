@@ -295,3 +295,7 @@ __marimo__/
 # for C++
 # Bundled files
 *.bundle.cpp
+
+# Others
+# online-judge-tools downloaded test cases
+**/test/
