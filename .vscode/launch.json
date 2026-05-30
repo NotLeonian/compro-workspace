@@ -1,0 +1,14 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "lldb debug",
+			"type": "lldb",
+			"request": "launch",
+			"program": "${fileDirname}/debug",
+			"args": [],
+			"cwd": "${workspaceFolder}",
+			"stdio": ["${workspaceFolder}/.vscode/input.txt"]
+		}
+	]
+}
