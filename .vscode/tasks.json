@@ -13,7 +13,7 @@
 		{
 			"label": "build (debug)",
 			"type": "shell",
-			"command": "clang-format -i -style=file \"${file}\" && uv run oj-bundle -I \"${workspaceFolder}/libraries/ei1333\" -I \"${workspaceFolder}/libraries/nyaan\" -I \"${workspaceFolder}/libraries/suisen\" -I \"${workspaceFolder}/libraries/niche-librar\" \"${file}\" > \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && g++ -o \"${fileDirname}/debug\" -g -ftrapv -fsanitize=undefined -fno-sanitize-recover -std=gnu++23 -I \"${workspaceFolder}/libraries/ac-library\" \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && sed -i '/^#line/d' \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && clang-format -i -style=file \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\"",
+			"command": "clang-format -i -style=file \"${file}\" && uv run oj-bundle -I \"${workspaceFolder}/libraries/ei1333\" -I \"${workspaceFolder}/libraries/nyaan\" -I \"${workspaceFolder}/libraries/suisen\" -I \"${workspaceFolder}/libraries/niche-library\" \"${file}\" > \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && g++ -o \"${fileDirname}/debug\" -g -ftrapv -fsanitize=undefined -fno-sanitize-recover -std=gnu++23 -I \"${workspaceFolder}/libraries/ac-library\" \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && sed -i '/^#line/d' \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && clang-format -i -style=file \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\"",
 			"group": {
 				"kind": "build",
 				"isDefault": false
