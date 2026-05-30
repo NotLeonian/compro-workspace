@@ -512,7 +512,9 @@ constexpr pair<S1, S2> e_const_pair() {
 template <class S> S op_min(S a, S b) { return min(a, b); }
 template <class S> S op_max(S a, S b) { return max(a, b); }
 template <class S> pair<S, S> op_minmax(pair<S, S> a, pair<S, S> b) {
-    return {min(a, b), max(a, b)};
+    auto [a1, a2] = a;
+    auto [b1, b2] = b;
+    return {min(a1, b1), max(a2, b2)};
 }
 template <class S> S op_add(S a, S b) { return a + b; }
 template <class S1, class S2>
