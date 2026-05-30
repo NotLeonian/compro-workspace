@@ -8,7 +8,7 @@
 			"program": "${fileDirname}/debug",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"stdio": ["${workspaceFolder}/.vscode/input.txt"]
+			"stdio": ["${workspaceFolder}/.vscode/input.txt", null, null]
 		}
 	]
 }
