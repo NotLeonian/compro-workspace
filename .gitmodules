@@ -4,3 +4,6 @@
 [submodule "libraries/ei1333"]
 	path = libraries/ei1333
 	url = https://github.com/ei1333/library.git
+[submodule "libraries/nyaan"]
+	path = libraries/nyaan
+	url = https://github.com/NotLeonian/Nyaan-Library
