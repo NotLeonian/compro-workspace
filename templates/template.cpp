@@ -501,7 +501,7 @@ template <class T, template <class...> class Heap = priority_queue>
 using min_heap = Heap<T, vector<T>, greater<>>;
 
 template <class S, S e> constexpr S e_const() { return e; }
-template <class S1, S1 e1, class S2, S2 e2> constexpr pair<S1, S2> e_pair() {
+template <class S1, S1 e1, class S2, S2 e2> constexpr pair<S1, S2> e_const_pair() {
     return {e1, e2};
 }
 template <class S> S op_min(S a, S b) { return min(a, b); }
@@ -551,17 +551,17 @@ template <class S, S e>
 using lazy_segtree_min =
     lazy_segtree<S, op_min<S>, e_const<S, e>, pair<S, S>,
                  mapping_affine<S, S, S>, composition_affine<S, S>,
-                 e_pair<S, 1, S, 0>>;
+                 e_const_pair<S, 1, S, 0>>;
 template <class S, S e>
 using lazy_segtree_max =
     lazy_segtree<S, op_max<S>, e_const<S, e>, pair<S, S>,
                  mapping_affine<S, S, S>, composition_affine<S, S>,
-                 e_pair<S, 1, S, 0>>;
+                 e_const_pair<S, 1, S, 0>>;
 template <class S>
 using lazy_segtree_add =
-    lazy_segtree<pair<int, S>, op_add_pair<int, S>, e_pair<int, 0, S, 0>,
+    lazy_segtree<pair<int, S>, op_add_pair<int, S>, e_const_pair<int, 0, S, 0>,
                  pair<S, S>, mapping_len_and_affine<S, S, int, S>,
-                 composition_affine<S, S>, e_pair<S, 1, S, 0>>;
+                 composition_affine<S, S>, e_const_pair<S, 1, S, 0>>;
 template <class M, class S = int>
 using lazy_segtree_add_mint =
     lazy_segtree<pair<int, M>, op_add_pair<int, M>,
