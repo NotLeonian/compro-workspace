@@ -615,11 +615,13 @@ using segtree_add_mint = segtree<M, op_add<M>, mint_const<M, S, 0>>;
 #endif
 
 #ifdef ATCODER_LAZYSEGTREE_HPP
+// f の傾きが非負であることを仮定する
 template <class S, S e>
 using lazy_segtree_min =
     lazy_segtree<S, op_min<S>, e_const<S, e>, pair<S, S>,
                  mapping_affine<S, S, S>, composition_affine<S, S>,
                  e_const_pair<S, 1, S, 0>>;
+// f の傾きが非負であることを仮定する
 template <class S, S e>
 using lazy_segtree_max =
     lazy_segtree<S, op_max<S>, e_const<S, e>, pair<S, S>,
