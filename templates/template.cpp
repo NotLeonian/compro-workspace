@@ -181,23 +181,20 @@ void out(const Hd &hd, const Tl &...tl) {
     if constexpr (sizeof...(Tl)) {
         (cout << ... << (cout << current_sep(cout), tl));
     }
-    cout << endl;
+    cout << "\n";
     if (do_flush) {
         cout << flush;
     }
 }
 
-template <bool do_flush = false, class Hd, class... Tl>
+template <class Hd, class... Tl>
 void err(const Hd &hd, const Tl &...tl) {
 #ifndef ONLINE_JUDGE
     cerr << hd;
     if constexpr (sizeof...(Tl)) {
         (cerr << ... << (cerr << current_sep(cerr), tl));
     }
-    cerr << endl;
-    if (do_flush) {
-        cerr << flush;
-    }
+    cerr << "\n";
 #endif
 }
 
