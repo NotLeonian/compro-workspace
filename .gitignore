@@ -291,3 +291,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# for C++
+# Bundled files
+*.bundle.cpp
