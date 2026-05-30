@@ -364,8 +364,9 @@ floor_div_mod(T1 x, T2 y) {
             q -= 1;
             r += b;
         }
-        return pair{q, r};
     }
+
+    return pair{q, r};
 }
 template <class T1, class T2>
 constexpr div_detail::div_type_t<T1, T2> floor_div(T1 x, T2 y) {
@@ -401,8 +402,9 @@ ceil_div_mod(T1 x, T2 y) {
             q += 1;
             r -= b;
         }
-        return pair{q, r};
     }
+
+    return pair{q, r};
 }
 template <class T1, class T2>
 constexpr div_detail::div_type_t<T1, T2> ceil_div(T1 x, T2 y) {
