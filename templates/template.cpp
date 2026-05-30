@@ -402,7 +402,7 @@ ceil_div_mod(T1 x, T2 y) {
             q += 1;
             r -= b;
         }
-    } else {
+    } else if (r != 0) {
         q += 1;
         r -= b;
     }
