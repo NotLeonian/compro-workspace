@@ -5,7 +5,7 @@
 			"name": "lldb debug",
 			"type": "lldb",
 			"request": "launch",
-			"program": "${fileDirname}/debug",
+			"program": "${fileDirname}/debug.out",
 			"args": [],
 			"cwd": "${workspaceFolder}",
 			"stdio": ["${workspaceFolder}/.vscode/input.txt", null, null]
