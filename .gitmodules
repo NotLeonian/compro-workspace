@@ -10,3 +10,6 @@
 [submodule "libraries/suisen"]
 	path = libraries/suisen
 	url = https://github.com/NotLeonian/cp-library-cpp
+[submodule "libraries/niche-library"]
+	path = libraries/niche-library
+	url = https://github.com/NotLeonian/NicheLibrary.git
