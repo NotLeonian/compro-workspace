@@ -265,14 +265,23 @@ template <class T> void decrement(T &v) {
     }
 }
 
-template <class It> iterator_traits<It>::value_type sum_of(It first, It last) {
-    using T = iterator_traits<It>::value_type;
-    return accumulate(first, last, T{});
+template <class T>
+using sum_type_t = typename conditional_t<is_integral_v<T>, common_type<T, ll>,
+                                          type_identity<T>>::type;
+template <class T, class U>
+using sum_init_type_t =
+    typename conditional_t<is_arithmetic_v<T> && is_arithmetic_v<U>,
+                           common_type<sum_type_t<T>, U>,
+                           type_identity<T>>::type;
+
+template <class It> auto sum_of(It first, It last) {
+    using T = typename iterator_traits<It>::value_type;
+    return accumulate(first, last, sum_type_t<T>{});
 }
-template <class It, class U>
-iterator_traits<It>::value_type sum_of(It first, It last, U init) {
-    using T = iterator_traits<It>::value_type;
-    return accumulate(first, last, T(init));
+template <class It, class U> auto sum_of(It first, It last, U init) {
+    using T = typename iterator_traits<It>::value_type;
+    using R = sum_init_type_t<T, U>;
+    return accumulate(first, last, R(init));
 }
 
 template <class Hd1, class Hd2, class... Tl>
