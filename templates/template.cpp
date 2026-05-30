@@ -182,7 +182,7 @@ void out(const Hd &hd, const Tl &...tl) {
         (cout << ... << (cout << current_sep(cout), tl));
     }
     cout << "\n";
-    if (do_flush) {
+    if constexpr (do_flush) {
         cout << flush;
     }
 }
