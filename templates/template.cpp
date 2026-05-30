@@ -317,58 +317,104 @@ auto lcm_of(Hd1 hd1, Hd2 hd2, Tl... tl) {
     }
 }
 
-template <class T1, class T2> constexpr auto floor_div_mod(T1 x, T2 y) {
-    static_assert(is_integral_v<T1>);
-    static_assert(is_integral_v<T2>);
+namespace div_detail {
+template <class T> using uncv_t = remove_cv_t<T>;
+
+template <class T>
+constexpr bool integral_non_bool_v =
+    is_integral_v<uncv_t<T>> && !is_same_v<uncv_t<T>, bool>;
+
+template <class T1, class T2>
+using common_t = common_type_t<uncv_t<T1>, uncv_t<T2>>;
+
+template <class T1, class T2>
+using div_type_t =
+    conditional_t<is_unsigned_v<common_t<T1, T2>> &&
+                      (is_signed_v<uncv_t<T1>> || is_signed_v<uncv_t<T2>>),
+                  make_signed_t<common_t<T1, T2>>, common_t<T1, T2>>;
+
+template <class To, class From> constexpr bool fits_in_div_type(From x) {
+    using F = uncv_t<From>;
+
+    if constexpr (is_signed_v<To> && is_unsigned_v<F>) {
+        using UTo = make_unsigned_t<To>;
+        return x <= static_cast<UTo>(numeric_limits<To>::max());
+    } else {
+        return true;
+    }
+}
+} // namespace div_detail
+
+template <class T1, class T2>
+constexpr pair<div_detail::div_type_t<T1, T2>, div_detail::div_type_t<T1, T2>>
+floor_div_mod(T1 x, T2 y) {
+    static_assert(div_detail::integral_non_bool_v<T1>);
+    static_assert(div_detail::integral_non_bool_v<T2>);
     assert(y != 0);
 
-    using T = common_type_t<T1, T2>;
-    T a = x, b = y;
+    using T = div_detail::div_type_t<T1, T2>;
+    assert(div_detail::fits_in_div_type<T>(x));
+    assert(div_detail::fits_in_div_type<T>(y));
+
+    T a = static_cast<T>(x), b = static_cast<T>(y);
     T q = a / b, r = a % b;
 
-    if (r != 0 && ((r < 0) != (b < 0))) {
-        q -= 1;
-        r += b;
+    if constexpr (std::is_signed_v<T>) {
+        if (r != 0 && ((r < 0) != (b < 0))) {
+            q -= 1;
+            r += b;
+        }
+        return pair{q, r};
     }
-    return pair{q, r};
 }
-template <class T1, class T2> constexpr auto floor_div(T1 x, T2 y) {
-    static_assert(is_integral_v<T1>);
-    static_assert(is_integral_v<T2>);
+template <class T1, class T2>
+constexpr div_detail::div_type_t<T1, T2> floor_div(T1 x, T2 y) {
+    static_assert(div_detail::integral_non_bool_v<T1>);
+    static_assert(div_detail::integral_non_bool_v<T2>);
     assert(y != 0);
     return floor_div_mod(x, y).first;
 }
-template <class T1, class T2> constexpr auto floor_mod(T1 x, T2 y) {
-    static_assert(is_integral_v<T1>);
-    static_assert(is_integral_v<T2>);
+template <class T1, class T2>
+constexpr div_detail::div_type_t<T1, T2> floor_mod(T1 x, T2 y) {
+    static_assert(div_detail::integral_non_bool_v<T1>);
+    static_assert(div_detail::integral_non_bool_v<T2>);
     assert(y != 0);
     return floor_div_mod(x, y).second;
 }
 
-template <class T1, class T2> constexpr auto ceil_div_mod(T1 x, T2 y) {
-    static_assert(is_integral_v<T1>);
-    static_assert(is_integral_v<T2>);
+template <class T1, class T2>
+constexpr pair<div_detail::div_type_t<T1, T2>, div_detail::div_type_t<T1, T2>>
+ceil_div_mod(T1 x, T2 y) {
+    static_assert(div_detail::integral_non_bool_v<T1>);
+    static_assert(div_detail::integral_non_bool_v<T2>);
     assert(y != 0);
 
-    using T = common_type_t<T1, T2>;
-    T a = x, b = y;
+    using T = div_detail::div_type_t<T1, T2>;
+    assert(div_detail::fits_in_div_type<T>(x));
+    assert(div_detail::fits_in_div_type<T>(y));
+
+    T a = static_cast<T>(x), b = static_cast<T>(y);
     T q = a / b, r = a % b;
 
-    if (r != 0 && ((r > 0) == (b > 0))) {
-        q += 1;
-        r -= b;
+    if constexpr (std::is_signed_v<T>) {
+        if (r != 0 && ((r > 0) == (b > 0))) {
+            q += 1;
+            r -= b;
+        }
+        return pair{q, r};
     }
-    return pair{q, r};
 }
-template <class T1, class T2> constexpr auto ceil_div(T1 x, T2 y) {
-    static_assert(is_integral_v<T1>);
-    static_assert(is_integral_v<T2>);
+template <class T1, class T2>
+constexpr div_detail::div_type_t<T1, T2> ceil_div(T1 x, T2 y) {
+    static_assert(div_detail::integral_non_bool_v<T1>);
+    static_assert(div_detail::integral_non_bool_v<T2>);
     assert(y != 0);
     return ceil_div_mod(x, y).first;
 }
-template <class T1, class T2> constexpr auto ceil_mod(T1 x, T2 y) {
-    static_assert(is_integral_v<T1>);
-    static_assert(is_integral_v<T2>);
+template <class T1, class T2>
+constexpr div_detail::div_type_t<T1, T2> ceil_mod(T1 x, T2 y) {
+    static_assert(div_detail::integral_non_bool_v<T1>);
+    static_assert(div_detail::integral_non_bool_v<T2>);
     assert(y != 0);
     return ceil_div_mod(x, y).second;
 }
