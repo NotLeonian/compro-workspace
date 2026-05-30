@@ -511,6 +511,9 @@ constexpr pair<S1, S2> e_const_pair() {
 }
 template <class S> S op_min(S a, S b) { return min(a, b); }
 template <class S> S op_max(S a, S b) { return max(a, b); }
+template <class S> S op_minmax(pair<S, S> a, pair<S, S> b) {
+    return {min(a, b), max(a, b)};
+}
 template <class S> S op_add(S a, S b) { return a + b; }
 template <class S1, class S2>
 pair<S1, S2> op_add_pair(pair<S1, S2> a, pair<S1, S2> b) {
@@ -521,6 +524,16 @@ pair<S1, S2> op_add_pair(pair<S1, S2> a, pair<S1, S2> b) {
 template <class F1, class F2, class S> S mapping_affine(pair<F1, F2> f, S x) {
     auto [a, b] = f;
     return a * x + b;
+}
+template <class F1, class F2, class S>
+pair<S, S> mapping_minmax_affine(pair<F1, F2> f, pair<S, S> x) {
+    auto [a, b] = f;
+    auto [l, r] = x;
+    if (a >= 0) {
+        return {a * l + b, a * r + b};
+    } else {
+        return {a * r + b, a * l + b};
+    }
 }
 template <class F1, class F2, class S1, class S2>
 pair<S1, S2> mapping_len_and_affine(pair<F1, F2> f, pair<S1, S2> x) {
@@ -562,6 +575,11 @@ using lazy_segtree_max =
     lazy_segtree<S, op_max<S>, e_const<S, e>, pair<S, S>,
                  mapping_affine<S, S, S>, composition_affine<S, S>,
                  e_const_pair<S, 1, S, 0>>;
+template <class S, S e_min, S e_max>
+using lazy_segtree_minmax =
+    lazy_segtree<pair<S, S>, op_minmax<S>, e_const_pair<S, e_min, S, e_max>,
+                 pair<S, S>, mapping_minmax_affine<S, S, S>,
+                 composition_affine<S, S>, e_const_pair<S, 1, S, 0>>;
 template <class S>
 using lazy_segtree_add =
     lazy_segtree<pair<int, S>, op_add_pair<int, S>, e_const_pair<int, 0, S, 0>,
