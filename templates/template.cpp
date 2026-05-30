@@ -187,8 +187,7 @@ void out(const Hd &hd, const Tl &...tl) {
     }
 }
 
-template <class Hd, class... Tl>
-void err(const Hd &hd, const Tl &...tl) {
+template <class Hd, class... Tl> void err(const Hd &hd, const Tl &...tl) {
 #ifndef ONLINE_JUDGE
     cerr << hd;
     if constexpr (sizeof...(Tl)) {
@@ -499,7 +498,7 @@ constexpr ull two_powers[64] = {1,
                                 9223372036854775808ULL};
 
 template <class T, template <class...> class Heap = priority_queue>
-using min_heap_type = Heap<T, vector<T>, greater<>>;
+using min_heap = Heap<T, vector<T>, greater<>>;
 
 template <class S, S e> constexpr S e_const() { return e; }
 template <class S1, S1 e1, class S2, S2 e2> constexpr pair<S1, S2> e_pair() {
