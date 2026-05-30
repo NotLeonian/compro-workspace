@@ -1,7 +1,24 @@
 [project]
 name = "my-compro-workspace"
-version = "0.0.0"
+version = "0.0.1"
 description = "My C++ workspace for competitive programming"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "acl-cpp-python>=0.6.2",
+    "pulp>=3.3.2",
+]
+
+[dependency-groups]
+dev = [
+    "aclogin>=0.2.1",
+    "online-judge-api-client",
+    "online-judge-template-generator",
+    "online-judge-tools>=11.5.1",
+    "online-judge-verify-helper>=5.6.0",
+    "ruff>=0.15.15",
+]
+
+[tool.uv.sources]
+online-judge-api-client = { git = "https://github.com/himoooooono/api-client", rev = "9f52b9a47d0d488730572f22faa410a2c6e914b8" }
+online-judge-template-generator = { git = "https://github.com/t4-project/template-generator.git", rev = "cb3a9a6feb4425f5c7e2728171c9948a782e5af0" }
