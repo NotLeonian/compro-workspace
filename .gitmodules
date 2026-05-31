@@ -4,12 +4,16 @@
 [submodule "libraries/ei1333"]
 	path = libraries/ei1333
 	url = https://github.com/ei1333/library.git
+	branch = master
 [submodule "libraries/nyaan"]
 	path = libraries/nyaan
 	url = https://github.com/NotLeonian/Nyaan-Library
+	branch = master
 [submodule "libraries/suisen"]
 	path = libraries/suisen
 	url = https://github.com/NotLeonian/cp-library-cpp
+	branch = main
 [submodule "libraries/niche-library"]
 	path = libraries/niche-library
 	url = https://github.com/NotLeonian/NicheLibrary.git
+	branch = main
