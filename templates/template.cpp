@@ -226,11 +226,17 @@ template <class Hd, class... Tl> void err(const Hd &hd, const Tl &...tl) {
 #endif
 }
 
-auto &out_sep(string s) { return cout << sep(s); }
-auto &err_sep(string s) { return cerr << sep(s); }
+auto &change_out_sep(string s = static_cast<string>("\n")) {
+    return cout << sep(s);
+}
+auto &change_err_sep(string s = static_cast<string>("\n")) {
+    return cerr << sep(s);
+}
 
-auto &out_sep_ln() { return out_sep("\n"); }
-auto &err_sep_ln() { return err_sep("\n"); }
+void change_seps(string s = static_cast<string>("\n")) {
+    change_out_sep(s);
+    change_err_sep(s);
+}
 
 #define dir_2(dx, dy) for (auto [dx, dy] : {pair{1, 0}, {0, 1}})
 #define dir(dx, dy) for (auto [dx, dy] : {pair{1, 0}, {0, 1}, {-1, 0}, {0, -1}})
