@@ -392,7 +392,7 @@ floor_div_mod(T1 x, T2 y) {
 
     if constexpr (is_signed_v<T>) {
         if (r != 0 && ((r < 0) != (b < 0))) {
-            q -= 1;
+            --q;
             r += b;
         }
     }
