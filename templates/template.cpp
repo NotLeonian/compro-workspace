@@ -238,17 +238,29 @@ void change_seps(string s = static_cast<string>("\n")) {
     change_err_sep(s);
 }
 
-#define dir_2(dx, dy) for (auto [dx, dy] : {pair{1, 0}, {0, 1}})
-#define dir(dx, dy) for (auto [dx, dy] : {pair{1, 0}, {0, 1}, {-1, 0}, {0, -1}})
-#define dir_8(dx, dy)                                                          \
-    for (auto [dx, dy] : {pair{1, 0},                                          \
-                          {1, 1},                                              \
-                          {0, 1},                                              \
-                          {-1, 1},                                             \
-                          {-1, 0},                                             \
-                          {-1, -1},                                            \
-                          {0, -1},                                             \
-                          {1, -1}})
+constexpr array<int, 2> dx_2{1, 0}, dy_2{0, 1};
+constexpr array<int, 4> dx{1, 0, -1, 0}, dy{0, 1, 0, -1};
+constexpr array<int, 8> dx_8{1, 1, 0, -1, -1, -1, 0, 1},
+    dy_8{0, 1, 1, 1, 0, -1, -1, -1};
+
+namespace dir_detail {
+template <size_t N>
+constexpr auto zip(const array<int, N> &xs, const array<int, N> &ys) {
+    array<pair<int, int>, N> res{};
+    for (size_t i = 0; i < N; ++i) {
+        res[i] = {xs[i], ys[i]};
+    }
+    return res;
+}
+}; // namespace dir_detail
+
+constexpr auto dxdy_2 = dir_detail::zip(dx_2, dy_2);
+constexpr auto dxdy = dir_detail::zip(dx, dy);
+constexpr auto dxdy_8 = dir_detail::zip(dx_8, dy_8);
+
+#define dir_2(dx_, dy_) for (auto [dx_, dy_] : dxdy_2)
+#define dir(dx_, dy_) for (auto [dx_, dy_] : dxdy)
+#define dir_8(dx_, dy_) for (auto [dx_, dy_] : dxdy_8)
 
 #define all(v) (v).begin(), (v).end()
 #define all_r(v) (v).rbegin(), (v).rend()
