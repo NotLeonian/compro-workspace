@@ -6,7 +6,7 @@ My C++ workspace for competitive programming
 ```sh
 git submodule update --init --recursive
 ```
-を実行しておく。
+おを実行しておく。
 
 このリポジトリのルートディレクトリで、
 ```sh
@@ -26,7 +26,7 @@ cd (このリポジトリのルートディレクトリ)
 ```
 を実行する（適切にディレクトリ名は読み替えること）。
 
-次に、[libraries/precompile/precompile.hpp](libraries/precompile/precompile.hpp) をプリコンパイルしていなければ
+次に、[libraries/precompile/precompile.hpp](libraries/precompile/precompile.hpp) をプリコンパイルしていない場合と、このリポジトリが ac-library の更新を反映した場合（および、libraries/precompile/precompile.hpp 自体が変更された場合）は
 ```sh
 cd libraries/precompile
 sudo g++ -O3 -std=gnu++23 -I ../ac-library ./precompile.hpp
