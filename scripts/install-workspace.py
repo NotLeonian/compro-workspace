@@ -165,7 +165,7 @@ def write_executable(path: pathlib.Path, content: str) -> None:
 @dataclass(frozen=True)
 class CommandLineArgs:
     workspace_root: pathlib.Path
-    no_backup: bool
+    no_backup: bool = False
 
 
 def main() -> None:
@@ -183,6 +183,7 @@ def main() -> None:
 
     parser.add_argument(
         "--no-backup",
+        dest="no_backup",
         action="store_true",
         help="prepare.config.toml や template が既に存在する場合に、それらをバックアップしない。",
     )
@@ -193,6 +194,8 @@ def main() -> None:
         action="store_false",
         help="prepare.config.toml や template が既に存在する場合に、それらをバックアップする。",
     )
+
+    parser.set_defaults(no_backup=False)
 
     args = CommandLineArgs(**vars(parser.parse_args()))
 
