@@ -191,7 +191,7 @@ def main() -> None:
     )
 
     group.add_argument(
-        "backup",
+        "--backup",
         dest="no_backup",
         action="store_false",
         help="prepare.config.toml や template が既に存在する場合に、それらをバックアップする。",
