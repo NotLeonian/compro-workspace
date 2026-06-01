@@ -2,13 +2,19 @@
 My C++ workspace for competitive programming
 
 ## Installation
-このリポジトリのルールディレクトリで、
+まず、`libraries/` の中身が空であれば、
+```sh
+git submodule update --init --recursive
+```
+を実行する。
+
+このリポジトリのルートディレクトリで、
 ```sh
 git pull
 ```
 と
 ```sh
-git submodule update --init --recursive
+git submodule update --recursive
 ```
 を実行してから、
 ```sh
