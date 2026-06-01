@@ -206,10 +206,14 @@ void out(const Hd &hd, const Tl &...tl) {
     if constexpr (sizeof...(Tl)) {
         (cout << ... << (cout << current_sep(cout), tl));
     }
+#ifdef ONLINE_JUDGE
     cout << "\n";
     if constexpr (do_flush) {
         cout << flush;
     }
+#else
+    cout << endl;
+#endif
 }
 
 template <class... T> void out_and_flush(const T &...args) {
