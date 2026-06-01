@@ -1,6 +1,33 @@
 # compro-workspace
 My C++ workspace for competitive programming
 
+## Installation
+まず、`libraries/` の中身が空であれば、
+```sh
+git submodule update --init --recursive
+```
+を実行する。
+
+このリポジトリのルートディレクトリで、
+```sh
+git pull
+```
+と
+```sh
+git submodule update --recursive
+```
+を実行してから、
+```sh
+./scripts/install-workspace.py (問題を解くワークスペースのルートのパス)
+```
+を実行する。
+
+> [!NOTE]
+> 必須ではないオプションとして `--no-backup` または `--backup` がある。
+> これは prepare.config.toml や template が既に存在する場合にそれらをバックアップするかを指定するオプション。
+
+その後、問題を解くワークスペースのルートで `oj-prepare` またはそのラッパー `./scripts/ojp` を実行できる。
+
 ## Tips
 ### 複数のライブラリの相対パスが衝突している場合
 Luzhiled's Library と Nyaan's Library の `geometry/` カテゴリ内の一部のファイルなど、そのライブラリのルートディレクトリから見た相対パスが衝突しているファイルがある。

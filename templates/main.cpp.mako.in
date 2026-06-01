@@ -1,0 +1,28 @@
+<%!
+import pathlib
+import shutil
+from logging import getLogger
+
+import onlinejudge_template.generator.hook as hook
+
+WORKSPACE_ROOT = pathlib.Path(r"__WORKSPACE_ROOT__")
+BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "template.cpp"
+CLANG_FORMAT = WORKSPACE_ROOT / ".clang-format"
+%>\
+<%
+logger = getLogger(__name__)
+
+if not shutil.which("clang-format"):
+    logger.warning("clang-format is not installed.")
+else:
+    if CLANG_FORMAT.exists():
+        hook.register_filter_command(
+            ["clang-format", f"--style=file:{CLANG_FORMAT.as_posix()}"],
+            data=data,
+        )
+    else:
+        hook.register_filter_command(["clang-format", "--style=file"], data=data)
+
+source = BASE_TEMPLATE.read_text(encoding="utf-8")
+%>\
+${source}
