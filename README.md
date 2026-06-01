@@ -6,7 +6,7 @@ My C++ workspace for competitive programming
 ```sh
 git submodule update --init --recursive
 ```
-を実行する。
+を実行しておく。
 
 このリポジトリのルートディレクトリで、
 ```sh
@@ -16,11 +16,30 @@ git pull
 ```sh
 git submodule update --recursive
 ```
-を実行してから、
+を実行する。
+
+次に、もし `bits/stdc++.h` をプリコンパイルしていなければ
 ```sh
-./scripts/install-workspace.py (問題を解くワークスペースのルートのパス)
+cd /usr/include/x86_64-linux-gnu/c++/11/bits (などの bits/stdc++.h が存在するディレクトリ)
+sudo g++ -O3 -std=gnu++23 stdc++.h
+cd (このリポジトリのルートディレクトリ)
+```
+を実行する（適切にディレクトリ名は読み替えること）。
+
+次に、[libraries/precompile/precompile.hpp](libraries/precompile/precompile.hpp) をプリコンパイルしていなければ
+```sh
+cd libraries/precompile
+sudo g++ -O3 -std=gnu++23 -I ../ac-library ./precompile.hpp
+cd ../..
 ```
 を実行する。
+
+そして、
+```sh
+./scripts/install-workspace.py (問題を解くワークスペースのルートディレクトリのパス)
+```
+を実行する。
+既に存在するディレクトリもまだ存在していないディレクトリも指定できる。
 
 なお、問題を解くワークスペースとしてこのリポジトリやその他 Git リポジトリの内部は指定できないようになっていることに注意。
 
