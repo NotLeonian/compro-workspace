@@ -181,14 +181,16 @@ def main() -> None:
         help="実際に問題を解くために使うワークスペースのパス",
     )
 
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+
+    group.add_argument(
         "--no-backup",
         dest="no_backup",
         action="store_true",
         help="prepare.config.toml や template が既に存在する場合に、それらをバックアップしない。",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "backup",
         dest="no_backup",
         action="store_false",
