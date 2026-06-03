@@ -55,6 +55,10 @@ cd ../..
 
 ただし、独自に編集していた設定ファイルがあればそれは上書きされることに注意。
 
+> [!CAUTION]
+> [.clang-format](.clang-format) と [libraries/precompile/.clang-format](libraries/precompile/.clang-format) は clang-format 20 で追加されたオプションを使用している。  
+> 使用する clang-format のバージョンは 20 以上にすること。
+
 ## Tips
 ### 複数のライブラリの相対パスが衝突している場合
 Luzhiled's Library と Nyaan's Library の `geometry/` カテゴリ内の一部のファイルなど、そのライブラリのルートディレクトリから見た相対パスが衝突しているファイルがある。
