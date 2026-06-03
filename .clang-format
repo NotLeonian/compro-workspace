@@ -4,6 +4,10 @@ IndentWidth: 4
 InsertBraces: true
 MaxEmptyLinesToKeep: 1
 KeepEmptyLines:
+  # AtEndOfFile: false は BasedOnStyle: LLVM に含まれる
   AtStartOfBlock: false
+  # AtStartOfFile: false は自動保存によるフォーマットとの相性が悪いため不使用
+WrapNamespaceBodyWithEmptyLines: Never
+RemoveEmptyLinesInUnwrappedLines: true
 ReflowComments: false
 AlignEscapedNewlines: Left
