@@ -49,15 +49,15 @@ cd ../..
 
 その後、問題を解くワークスペースのルートで `oj-prepare` またはそのラッパー `./scripts/ojp` を実行できる。
 
+> [!CAUTION]
+> [.clang-format](.clang-format) と [libraries/precompile/.clang-format](libraries/precompile/.clang-format) は clang-format 20 で追加されたオプションを使用している。  
+> 使用する clang-format のバージョンは 20 以上にすること。
+
 ## このリポジトリの更新への追従
 同じパスに対して上の Installation を再度行えばよい。
 `problems/` 内のファイルが削除されることはない。
 
 ただし、独自に編集していた設定ファイルがあればそれは上書きされることに注意。
-
-> [!CAUTION]
-> [.clang-format](.clang-format) と [libraries/precompile/.clang-format](libraries/precompile/.clang-format) は clang-format 20 で追加されたオプションを使用している。  
-> 使用する clang-format のバージョンは 20 以上にすること。
 
 ## Tips
 ### 複数のライブラリの相対パスが衝突している場合
