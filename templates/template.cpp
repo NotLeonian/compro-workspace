@@ -44,15 +44,15 @@ using mint = modint998244353;
 #define rep_t_r2(type, i, l, r) for (type i = (r) - 1; i >= (l); --i)
 #define rep_t_r3(type, i, l, r, d) for (type i = (r) - 1; i >= (l); i -= (d))
 #define rep_t(...) rep_t_kind(__VA_ARGS__, rep_t3, rep_t2, rep_t1)(__VA_ARGS__)
-#define rep_t_r(...)                                                           \
+#define rep_t_r(...) \
     rep_t_kind(__VA_ARGS__, rep_t_r3, rep_t_r2, rep_t_r1)(__VA_ARGS__)
 
 #define do_while_kind(a, b, c, ...) c
-#define do_while1(cond)                                                        \
+#define do_while1(cond) \
     for (bool is_first = true; is_first || (cond); is_first = false)
-#define do_while2(cond, is_first)                                              \
+#define do_while2(cond, is_first) \
     for (bool is_first = true; is_first || (cond); is_first = false)
-#define do_while(...)                                                          \
+#define do_while(...) \
     do_while_kind(__VA_ARGS__, do_while2, do_while1)(__VA_ARGS__)
 
 #ifdef ATCODER_MODINT_HPP
@@ -193,11 +193,11 @@ template <class... T> void in_z(T &...args) {
     (cin >> ... >> args);
     (..., --args);
 }
-#define in_d(type, ...)                                                        \
-    type __VA_ARGS__;                                                          \
+#define in_d(type, ...) \
+    type __VA_ARGS__;   \
     in(__VA_ARGS__)
-#define in_dz(type, ...)                                                       \
-    type __VA_ARGS__;                                                          \
+#define in_dz(type, ...) \
+    type __VA_ARGS__;    \
     in_z(__VA_ARGS__)
 
 template <bool do_flush = false, class Hd, class... Tl>
