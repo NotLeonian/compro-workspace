@@ -258,14 +258,9 @@ template <class R> void err2(const R &range) {
 #endif
 }
 
-auto &change_out_sep(string s = static_cast<string>("\n")) {
-    return cout << sep(s);
-}
-auto &change_err_sep(string s = static_cast<string>("\n")) {
-    return cerr << sep(s);
-}
-
-void change_seps(string s = static_cast<string>("\n")) {
+auto &change_out_sep(string s = string()) { return cout << sep(s); }
+auto &change_err_sep(string s = string()) { return cerr << sep(s); }
+void change_seps(string s = string()) {
     change_out_sep(s);
     change_err_sep(s);
 }
