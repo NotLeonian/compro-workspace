@@ -236,14 +236,14 @@ void out2(It1 first, It2 last) {
         out<do_flush>(*first);
     }
 }
-template <bool do_flush = false, class R> void out2(const R &range) {
+template <bool do_flush = false, class R> void out2(R &&range) {
     out2<do_flush>(begin(range), end(range));
 }
 
 template <class It1, class It2> void out2_and_flush(It1 first, It2 last) {
     out2<true>(first, last);
 }
-template <class R> void out2_and_flush(const R &range) { out2<true>(range); }
+template <class R> void out2_and_flush(R &&range) { out2<true>(range); }
 
 template <class It1, class It2> void err2(It1 first, It2 last) {
 #ifndef ONLINE_JUDGE
@@ -252,8 +252,7 @@ template <class It1, class It2> void err2(It1 first, It2 last) {
     }
 #endif
 }
-
-template <class R> void err2(const R &range) {
+template <class R> void err2(R &&range) {
 #ifndef ONLINE_JUDGE
     err2(begin(range), end(range));
 #endif
