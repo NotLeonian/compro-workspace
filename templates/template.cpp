@@ -230,14 +230,37 @@ template <class Hd, class... Tl> void err(const Hd &hd, const Tl &...tl) {
 #endif
 }
 
-auto &change_out_sep(string s = static_cast<string>("\n")) {
-    return cout << sep(s);
+template <bool do_flush = false, class It1, class It2>
+void out2(It1 first, It2 last) {
+    for (; first != last; ++first) {
+        out<do_flush>(*first);
+    }
 }
-auto &change_err_sep(string s = static_cast<string>("\n")) {
-    return cerr << sep(s);
+template <bool do_flush = false, class R> void out2(R &&range) {
+    out2<do_flush>(begin(range), end(range));
 }
 
-void change_seps(string s = static_cast<string>("\n")) {
+template <class It1, class It2> void out2_and_flush(It1 first, It2 last) {
+    out2<true>(first, last);
+}
+template <class R> void out2_and_flush(R &&range) { out2<true>(range); }
+
+template <class It1, class It2> void err2(It1 first, It2 last) {
+#ifndef ONLINE_JUDGE
+    for (; first != last; ++first) {
+        err(*first);
+    }
+#endif
+}
+template <class R> void err2(R &&range) {
+#ifndef ONLINE_JUDGE
+    err2(begin(range), end(range));
+#endif
+}
+
+auto &change_out_sep(string s = string()) { return cout << sep(s); }
+auto &change_err_sep(string s = string()) { return cerr << sep(s); }
+void change_seps(string s = string()) {
     change_out_sep(s);
     change_err_sep(s);
 }
