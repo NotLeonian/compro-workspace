@@ -6,3 +6,4 @@ MaxEmptyLinesToKeep: 1
 KeepEmptyLines:
   AtStartOfBlock: false
 ReflowComments: false
+AlignEscapedNewlines: Left
