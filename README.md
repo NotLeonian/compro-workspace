@@ -6,7 +6,7 @@ My C++ workspace for competitive programming
 ```sh
 git submodule update --init --recursive
 ```
-おを実行しておく。
+を実行しておく。
 
 このリポジトリのルートディレクトリで、
 ```sh
