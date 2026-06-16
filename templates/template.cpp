@@ -127,15 +127,21 @@ ostream &operator<<(ostream &os, const pair<T1, T2> &p) {
     return os;
 }
 
-template <class T1, class T2, class T3>
-istream &operator>>(istream &is, tuple<T1, T2, T3> &t3) {
-    is >> get<0>(t3) >> get<1>(t3) >> get<2>(t3);
+template <class... Ts> istream &operator>>(istream &is, tuple<Ts...> &t) {
+    apply([&](auto &...xs) { ((is >> xs), ...); }, t);
     return is;
 }
-template <class T1, class T2, class T3>
-ostream &operator<<(ostream &os, const tuple<T1, T2, T3> &t3) {
-    os << get<0>(t3) << current_sep(os) << get<1>(t3) << current_sep(os)
-       << get<2>(t3);
+template <class... Ts> ostream &operator<<(ostream &os, const tuple<Ts...> &t) {
+    bool is_first = true;
+    auto put = [&](const auto &x) {
+        if (is_first) {
+            is_first = false;
+        } else {
+            os << current_sep(os);
+        }
+        os << x;
+    };
+    apply([&](const auto &...xs) { (put(xs), ...); }, t);
     return os;
 }
 
