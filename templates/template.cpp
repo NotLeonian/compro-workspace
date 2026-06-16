@@ -313,17 +313,62 @@ template <class T> void decrement_impl(T &x) {
 template <class T> void increment(T &x) { incdec_detail::increment_impl(x); }
 template <class T> void decrement(T &x) { incdec_detail::decrement_impl(x); }
 
-template <class... T> void in(T &...args) { (cin >> ... >> args); }
-template <class... T> void in_z(T &...args) {
+template <class... Ts> void in(Ts &...args) { (cin >> ... >> args); }
+template <class... Ts> void in_z(Ts &...args) {
     in(args...);
     (decrement(args), ...);
 }
-#define in_d(type, ...) \
-    type __VA_ARGS__;   \
-    in(__VA_ARGS__)
-#define in_dz(type, ...) \
-    type __VA_ARGS__;    \
-    in_z(__VA_ARGS__)
+
+namespace input_detail {
+template <class Tuple> void read(Tuple &t) {
+    apply(
+        [](auto &...xs) {
+            if constexpr (sizeof...(xs) > 0) {
+                in(xs...);
+            }
+        },
+        t);
+}
+template <class Tuple> void read_z(Tuple &t) {
+    apply(
+        [](auto &...xs) {
+            if constexpr (sizeof...(xs) > 0) {
+                in_z(xs...);
+            }
+        },
+        t);
+}
+
+template <class T, size_t> using repeat_t = T;
+template <class T, size_t... Is> auto input_impl(index_sequence<Is...>) {
+    tuple<repeat_t<T, Is>...> t;
+    read(t);
+    return t;
+}
+template <class T, size_t... Is> auto input_z_impl(index_sequence<Is...>) {
+    tuple<repeat_t<T, Is>...> t;
+    read_z(t);
+    return t;
+}
+} // namespace input_detail
+
+template <class... Ts> auto input() {
+    tuple<Ts...> t;
+    in(t);
+    return t;
+}
+template <class... Ts> auto input_z() {
+    tuple<Ts...> t;
+    in_z(t);
+    return t;
+}
+
+template <class T, size_t N> auto input() {
+    return input_detail::input_impl<T>(make_index_sequence<N>{});
+}
+template <class T, size_t N> auto input_z() {
+    return input_detail::input_z_impl<T>(make_index_sequence<N>{});
+}
 
 template <bool do_flush = false, class Hd, class... Tl>
 void out(const Hd &hd, const Tl &...tl) {
@@ -341,7 +386,7 @@ void out(const Hd &hd, const Tl &...tl) {
 #endif
 }
 
-template <class... T> void out_and_flush(const T &...args) {
+template <class... Ts> void out_and_flush(const Ts &...args) {
     out<true>(args...);
 }
 
