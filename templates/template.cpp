@@ -173,7 +173,7 @@ template <class T> void read(istream &is, T &x) {
 }
 
 template <class T> void write(ostream &os, T &&x) {
-    if constexpr (nonstring_range<T>) {
+    if constexpr (ranges::input_range<T>) {
         bool is_first = true;
         for (auto &&e : x) {
             if (is_first) {
@@ -228,10 +228,59 @@ template <nonstring_range T> ostream &operator<<(ostream &os, T &&r) {
     return os;
 }
 
+namespace incdec_detail {
+template <class T>
+concept pre_incrementable = requires(T &x) { ++x; };
+template <class T>
+concept pre_decrementable = requires(T &x) { --x; };
+template <class T>
+concept tuple_like = requires { typename tuple_size<remove_cvref_t<T>>::type; };
+
+template <class T> void increment_impl(T &x);
+template <class T> void decrement_impl(T &x);
+
+template <class Tuple, class F> void for_each_tuple_element(Tuple &t, F &&f) {
+    [&]<size_t... I>(index_sequence<I...>) {
+        (f(get<I>(t)), ...);
+    }(make_index_sequence<tuple_size_v<remove_cvref_t<Tuple>>>{});
+}
+
+template <class T> void increment_impl(T &x) {
+    if constexpr (ranges::input_range<T>) {
+        for (auto &&e : x) {
+            increment_impl(e);
+        }
+    } else if constexpr (tuple_like<T>) {
+        for_each_tuple_element(x, [](auto &e) { increment_impl(e); });
+    } else if constexpr (pre_incrementable<T>) {
+        ++x;
+    } else {
+        static_assert(pre_incrementable<T>, "increment: unsupported type");
+    }
+}
+
+template <class T> void decrement_impl(T &x) {
+    if constexpr (ranges::input_range<T>) {
+        for (auto &&e : x) {
+            decrement_impl(e);
+        }
+    } else if constexpr (tuple_like<T>) {
+        for_each_tuple_element(x, [](auto &e) { decrement_impl(e); });
+    } else if constexpr (pre_decrementable<T>) {
+        --x;
+    } else {
+        static_assert(pre_decrementable<T>, "decrement: unsupported type");
+    }
+}
+} // namespace incdec_detail
+
+template <class T> void increment(T &x) { incdec_detail::increment_impl(x); }
+template <class T> void decrement(T &x) { incdec_detail::decrement_impl(x); }
+
 template <class... T> void in(T &...args) { (cin >> ... >> args); }
 template <class... T> void in_z(T &...args) {
-    (cin >> ... >> args);
-    (..., --args);
+    in(args...);
+    (decrement(args), ...);
 }
 #define in_d(type, ...) \
     type __VA_ARGS__;   \
@@ -362,17 +411,6 @@ template <class T1, class T2> bool chmax(T1 &l, const T2 &r) {
         return true;
     }
     return false;
-}
-
-template <class T> void increment(T &v) {
-    for (auto &e : v) {
-        ++e;
-    }
-}
-template <class T> void decrement(T &v) {
-    for (auto &e : v) {
-        --e;
-    }
 }
 
 template <class T>
