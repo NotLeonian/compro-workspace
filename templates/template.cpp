@@ -173,7 +173,7 @@ template <class T> void read(istream &is, T &x) {
 }
 
 template <class T> void write(ostream &os, T &&x) {
-    if constexpr (ranges::input_range<T>) {
+    if constexpr (nonstring_range<T>) {
         bool is_first = true;
         for (auto &&e : x) {
             if (is_first) {
