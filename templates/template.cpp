@@ -116,29 +116,6 @@ inline const char *current_sep(ios_base &ios) {
     return " ";
 }
 
-template <class T1, class T2>
-istream &operator>>(istream &is, pair<T1, T2> &p) {
-    is >> p.first >> p.second;
-    return is;
-}
-template <class T1, class T2>
-ostream &operator<<(ostream &os, const pair<T1, T2> &p) {
-    os << p.first << current_sep(os) << p.second;
-    return os;
-}
-
-template <class T1, class T2, class T3>
-istream &operator>>(istream &is, tuple<T1, T2, T3> &t3) {
-    is >> get<0>(t3) >> get<1>(t3) >> get<2>(t3);
-    return is;
-}
-template <class T1, class T2, class T3>
-ostream &operator<<(ostream &os, const tuple<T1, T2, T3> &t3) {
-    os << get<0>(t3) << current_sep(os) << get<1>(t3) << current_sep(os)
-       << get<2>(t3);
-    return os;
-}
-
 template <class T>
 concept char_range =
     ranges::input_range<T> && same_as<ranges::range_value_t<T>, char>;
@@ -163,28 +140,91 @@ template <class R>
 concept inputtable_nonstring_range =
     nonstring_range<R> && (writable_lvalue_range<R> || proxy_writable_range<R>);
 
-template <inputtable_nonstring_range T> istream &operator>>(istream &is, T &r) {
-    for (auto &&e : r) {
-        if constexpr (writable_lvalue_range<T>) {
-            is >> e;
-        } else {
-            ranges::range_value_t<T> v{};
-            is >> v;
-            e = std::move(v);
+namespace io_detail {
+template <class T>
+concept tuple_like = requires { typename tuple_size<remove_cvref_t<T>>::type; };
+
+template <class T> void read(istream &is, T &x);
+template <class T> void write(ostream &os, T &&x);
+
+template <class Tuple, class F> void for_each_tuple_element(Tuple &&t, F &&f) {
+    [&]<size_t... I>(index_sequence<I...>) {
+        using std::get;
+        (f(get<I>(std::forward<Tuple>(t))), ...);
+    }(make_index_sequence<tuple_size_v<remove_cvref_t<Tuple>>>{});
+}
+
+template <class T> void read(istream &is, T &x) {
+    if constexpr (inputtable_nonstring_range<T>) {
+        for (auto &&e : x) {
+            if constexpr (writable_lvalue_range<T>) {
+                read(is, e);
+            } else {
+                ranges::range_value_t<T> v{};
+                read(is, v);
+                e = std::move(v);
+            }
         }
+    } else if constexpr (tuple_like<T>) {
+        for_each_tuple_element(x, [&](auto &e) { read(is, e); });
+    } else {
+        is >> x;
     }
+}
+
+template <class T> void write(ostream &os, T &&x) {
+    if constexpr (nonstring_range<T>) {
+        bool is_first = true;
+        for (auto &&e : x) {
+            if (is_first) {
+                is_first = false;
+            } else {
+                os << current_sep(os);
+            }
+            write(os, std::forward<decltype(e)>(e));
+        }
+    } else if constexpr (tuple_like<T>) {
+        bool is_first = true;
+        for_each_tuple_element(std::forward<T>(x), [&](auto &&e) {
+            if (is_first) {
+                is_first = false;
+            } else {
+                os << current_sep(os);
+            }
+            write(os, std::forward<decltype(e)>(e));
+        });
+    } else {
+        os << std::forward<T>(x);
+    }
+}
+} // namespace io_detail
+
+template <class T1, class T2>
+istream &operator>>(istream &is, pair<T1, T2> &p) {
+    io_detail::read(is, p);
+    return is;
+}
+template <class T1, class T2>
+ostream &operator<<(ostream &os, const pair<T1, T2> &p) {
+    io_detail::write(os, p);
+    return os;
+}
+
+template <class... Ts> istream &operator>>(istream &is, tuple<Ts...> &t) {
+    io_detail::read(is, t);
+    return is;
+}
+template <class... Ts> ostream &operator<<(ostream &os, const tuple<Ts...> &t) {
+    io_detail::write(os, t);
+    return os;
+}
+
+template <inputtable_nonstring_range T> istream &operator>>(istream &is, T &r) {
+    io_detail::read(is, r);
     return is;
 }
 template <nonstring_range T> ostream &operator<<(ostream &os, T &&r) {
-    bool is_first = true;
-    for (auto &&e : r) {
-        if (is_first) {
-            is_first = false;
-        } else {
-            os << current_sep(os);
-        }
-        os << e;
-    }
+    io_detail::write(os, std::forward<T>(r));
     return os;
 }
 
