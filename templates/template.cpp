@@ -277,15 +277,13 @@ template <class T> void increment_impl(T &x) {
             e = std::move(v);
         }
     } else if constexpr (ranges::input_range<T>) {
-        static_assert(always_false_v<T>,
-                      "increment: this range does not expose mutable elements; "
-                      "by-value or const ranges are rejected");
+        static_assert(always_false_v<T>);
     } else if constexpr (tuple_like<T>) {
         for_each_tuple_element(x, [](auto &e) { increment_impl(e); });
     } else if constexpr (pre_incrementable<T>) {
         ++x;
     } else {
-        static_assert(always_false_v<T>, "increment: unsupported type");
+        static_assert(always_false_v<T>);
     }
 }
 
@@ -301,15 +299,13 @@ template <class T> void decrement_impl(T &x) {
             e = std::move(v);
         }
     } else if constexpr (ranges::input_range<T>) {
-        static_assert(always_false_v<T>,
-                      "decrement: this range does not expose mutable elements; "
-                      "by-value or const ranges are rejected");
+        static_assert(always_false_v<T>);
     } else if constexpr (tuple_like<T>) {
         for_each_tuple_element(x, [](auto &e) { decrement_impl(e); });
     } else if constexpr (pre_decrementable<T>) {
         --x;
     } else {
-        static_assert(always_false_v<T>, "decrement: unsupported type");
+        static_assert(always_false_v<T>);
     }
 }
 } // namespace incdec_detail
