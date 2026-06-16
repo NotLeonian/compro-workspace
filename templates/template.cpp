@@ -228,10 +228,99 @@ template <nonstring_range T> ostream &operator<<(ostream &os, T &&r) {
     return os;
 }
 
+namespace incdec_detail {
+template <class> inline constexpr bool always_false_v = false;
+
+template <class T>
+concept pre_incrementable = requires(T &x) { ++x; };
+template <class T>
+concept pre_decrementable = requires(T &x) { --x; };
+template <class T>
+concept tuple_like = requires { typename tuple_size<remove_cvref_t<T>>::type; };
+
+template <class R>
+concept mutable_lvalue_range =
+    ranges::input_range<R> &&
+    is_lvalue_reference_v<ranges::range_reference_t<R>> &&
+    !is_const_v<remove_reference_t<ranges::range_reference_t<R>>>;
+template <class R>
+concept mutable_proxy_range =
+    ranges::input_range<R> &&
+    !is_lvalue_reference_v<ranges::range_reference_t<R>> &&
+    !same_as<remove_cvref_t<ranges::range_reference_t<R>>,
+             ranges::range_value_t<R>> &&
+    constructible_from<ranges::range_value_t<R>,
+                       ranges::range_reference_t<R>> &&
+    requires(ranges::range_reference_t<R> e, ranges::range_value_t<R> v) {
+        e = std::move(v);
+    };
+
+template <class T> void increment_impl(T &x);
+template <class T> void decrement_impl(T &x);
+
+template <class Tuple, class F> void for_each_tuple_element(Tuple &t, F &&f) {
+    [&]<size_t... I>(index_sequence<I...>) {
+        using std::get;
+        (f(get<I>(t)), ...);
+    }(make_index_sequence<tuple_size_v<remove_cvref_t<Tuple>>>{});
+}
+
+template <class T> void increment_impl(T &x) {
+    if constexpr (mutable_lvalue_range<T>) {
+        for (auto &&e : x) {
+            increment_impl(e);
+        }
+    } else if constexpr (mutable_proxy_range<T>) {
+        for (auto &&e : x) {
+            ranges::range_value_t<T> v(e);
+            increment_impl(v);
+            e = std::move(v);
+        }
+    } else if constexpr (ranges::input_range<T>) {
+        static_assert(always_false_v<T>,
+                      "increment: this range does not expose mutable elements; "
+                      "by-value or const ranges are rejected");
+    } else if constexpr (tuple_like<T>) {
+        for_each_tuple_element(x, [](auto &e) { increment_impl(e); });
+    } else if constexpr (pre_incrementable<T>) {
+        ++x;
+    } else {
+        static_assert(always_false_v<T>, "increment: unsupported type");
+    }
+}
+
+template <class T> void decrement_impl(T &x) {
+    if constexpr (mutable_lvalue_range<T>) {
+        for (auto &&e : x) {
+            decrement_impl(e);
+        }
+    } else if constexpr (mutable_proxy_range<T>) {
+        for (auto &&e : x) {
+            ranges::range_value_t<T> v(e);
+            decrement_impl(v);
+            e = std::move(v);
+        }
+    } else if constexpr (ranges::input_range<T>) {
+        static_assert(always_false_v<T>,
+                      "decrement: this range does not expose mutable elements; "
+                      "by-value or const ranges are rejected");
+    } else if constexpr (tuple_like<T>) {
+        for_each_tuple_element(x, [](auto &e) { decrement_impl(e); });
+    } else if constexpr (pre_decrementable<T>) {
+        --x;
+    } else {
+        static_assert(always_false_v<T>, "decrement: unsupported type");
+    }
+}
+} // namespace incdec_detail
+
+template <class T> void increment(T &x) { incdec_detail::increment_impl(x); }
+template <class T> void decrement(T &x) { incdec_detail::decrement_impl(x); }
+
 template <class... T> void in(T &...args) { (cin >> ... >> args); }
 template <class... T> void in_z(T &...args) {
-    (cin >> ... >> args);
-    (..., --args);
+    in(args...);
+    (decrement(args), ...);
 }
 #define in_d(type, ...) \
     type __VA_ARGS__;   \
@@ -362,17 +451,6 @@ template <class T1, class T2> bool chmax(T1 &l, const T2 &r) {
         return true;
     }
     return false;
-}
-
-template <class T> void increment(T &v) {
-    for (auto &e : v) {
-        ++e;
-    }
-}
-template <class T> void decrement(T &v) {
-    for (auto &e : v) {
-        --e;
-    }
 }
 
 template <class T>
