@@ -1,4 +1,5 @@
 <%!
+import ast
 import pathlib
 import re
 import shutil
@@ -15,6 +16,7 @@ from onlinejudge_template.types import (
     SequenceNode,
     VarDecl,
     VarName,
+    VarType,
 )
 
 WORKSPACE_ROOT = pathlib.Path(r"__WORKSPACE_ROOT__")
@@ -75,26 +77,76 @@ def _transform_name(name: object, *, counter: str) -> str:
     return _transform_expr(name, counter=counter)
 
 
+def _affine_counter_expr(expr: object, *, counter: str):
+    """
+    expr が counter + 定数 の形なら (1, 定数) を返す。
+    それ以外なら None を返す。
+    """
+    text = _simple_expr(expr)
+
+    try:
+        node = ast.parse(text, mode="eval").body
+    except SyntaxError:
+        return None
+
+    def visit(node):
+        if isinstance(node, ast.Name):
+            if node.id == counter:
+                return 1, 0
+            return None
+
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            return 0, node.value
+
+        if isinstance(node, ast.UnaryOp):
+            value = visit(node.operand)
+            if value is None:
+                return None
+            a, b = value
+            if isinstance(node.op, ast.UAdd):
+                return a, b
+            if isinstance(node.op, ast.USub):
+                return -a, -b
+            return None
+
+        if isinstance(node, ast.BinOp):
+            lhs = visit(node.left)
+            rhs = visit(node.right)
+            if lhs is None or rhs is None:
+                return None
+            la, lb = lhs
+            ra, rb = rhs
+
+            if isinstance(node.op, ast.Add):
+                return la + ra, lb + rb
+            if isinstance(node.op, ast.Sub):
+                return la - ra, lb - rb
+
+            return None
+
+        return None
+
+    return visit(node)
+
+
+def _is_testcase_index_expr(expr: object, *, counter: str) -> bool:
+    value = _affine_counter_expr(expr, counter=counter)
+    if value is None:
+        return False
+
+    coefficient, _constant = value
+    return coefficient == 1
+
+
 def _clone_without_case_index(node, *, counter: str):
     if isinstance(node, ItemNode):
         name = _transform_name(node.name, counter=counter)
         indices = [_transform_expr(index, counter=counter) for index in node.indices]
-        if indices and _simple_expr(node.indices[0]) == counter:
+
+        if indices and _is_testcase_index_expr(node.indices[0], counter=counter):
             indices = indices[1:]
+
         return ItemNode(name=name, indices=indices)
-    if isinstance(node, NewlineNode):
-        return NewlineNode()
-    if isinstance(node, SequenceNode):
-        return SequenceNode(
-            items=[_clone_without_case_index(item, counter=counter) for item in node.items]
-        )
-    if isinstance(node, LoopNode):
-        return LoopNode(
-            size=_transform_expr(node.size, counter=counter),
-            name=str(node.name),
-            body=_clone_without_case_index(node.body, counter=counter),
-        )
-    return node
 
 
 def _transform_decl(decl, *, count_name: str, counter: str):
@@ -164,18 +216,82 @@ def _data_with_input(data: dict[str, Any], *, input_format, input_variables):
     return generated_data
 
 
+INT_LIMIT = 10_000_000
+
+
+def _is_integral_input_type(var_type) -> bool:
+    return var_type in (None, VarType.IndexInt, VarType.ValueInt)
+
+
+def _select_integral_var_type(decl, *, upper_bound: int | None):
+    if not _is_integral_input_type(decl.type):
+        return decl.type
+
+    if upper_bound is None:
+        return VarType.ValueInt
+
+    if upper_bound < INT_LIMIT:
+        return VarType.IndexInt
+
+    return VarType.ValueInt
+
+
+def _adjust_input_variable_types(decls, *, data: dict[str, Any]):
+    result = {}
+
+    for name, decl in decls.items():
+        upper_bound = _upper_bound_of_decl(decl, data=data)
+        new_type = _select_integral_var_type(decl, upper_bound=upper_bound)
+        result[name] = decl._replace(type=new_type)
+
+    return result
+
+
+def _read_input_fallback_ll() -> str:
+    return "\n".join(
+        [
+            "    // failed to analyze input format; edit here",
+            "    ll n;",
+            "    in(n);",
+            "    vector<ll> a(n);",
+            "    rep(i, n) {",
+            "        in(a[i]);",
+            "    }",
+        ]
+    )
+
+
 def _build_generated_parts(data: dict[str, Any], *, logger):
     try:
         analyzed = data["analyzed"]
-        split = _split_top_level_testcases(analyzed)
         constants = cplusplus.declare_constants(data).rstrip()
+
+        if analyzed.input_format is None or analyzed.input_variables is None:
+            return constants, _read_input_fallback_ll(), "    // in(t);"
+
+        split = _split_top_level_testcases(analyzed)
+
+        typed_variables = _adjust_input_variable_types(
+            analyzed.input_variables,
+            data=data,
+        )
+
         if split is None:
-            return constants, cplusplus.read_input(data, nest=1).rstrip(), "    // in(t);"
+            generated_data = _data_with_input(
+                data,
+                input_format=analyzed.input_format,
+                input_variables=typed_variables,
+            )
+            return (
+                constants,
+                cplusplus.read_input(generated_data, nest=1).rstrip(),
+                "    // in(t);",
+            )
 
         count_name, counter, body = split
         case_format = _clone_without_case_index(body, counter=counter)
         case_variables = _transform_decls(
-            analyzed.input_variables,
+            typed_variables,
             count_name=count_name,
             counter=counter,
         )
@@ -184,7 +300,9 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             input_format=case_format,
             input_variables=case_variables,
         )
+
         return constants, cplusplus.read_input(case_data, nest=1).rstrip(), "    in(t);"
+
     except Exception as exc:
         logger.warning("failed to generate input receiving code: %s", exc)
         return "", "    // failed to generate input receiving code; edit here", "    // in(t);"
