@@ -25,15 +25,43 @@ WORKSPACE_ROOT = pathlib.Path(r"__WORKSPACE_ROOT__")
 BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "template.cpp"
 CLANG_FORMAT = WORKSPACE_ROOT / ".clang-format"
 
-CASE_COUNT_NAMES = {
+_CASE_COUNT_NAMES = {
     "t",
     "tc",
     "tt",
+    "test",
+    "tests",
     "testcase",
     "testcases",
-    "casecount",
-    "numtestcases",
-    "numberoftestcases",
+    "test_case",
+    "test_cases",
+    "case_count",
+    "cases_count",
+    "num_cases",
+    "num_testcases",
+    "num_test_cases",
+    "number_of_cases",
+    "number_of_testcases",
+    "number_of_test_cases",
+    "n_cases",
+    "n_tests",
+}
+
+_STRONG_CASE_COUNT_NAMES = {
+    "testcase",
+    "testcases",
+    "test_case",
+    "test_cases",
+    "case_count",
+    "cases_count",
+    "num_cases",
+    "num_testcases",
+    "num_test_cases",
+    "number_of_cases",
+    "number_of_testcases",
+    "number_of_test_cases",
+    "n_cases",
+    "n_tests",
 }
 
 
@@ -44,12 +72,19 @@ def _scanner(exprs):
     return [f"in({', '.join(expr_list)});"]
 
 
-def _normalize_name(name: object) -> str:
-    return re.sub(r"[^a-z0-9]+", "", str(name).lower())
+def _normalize_identifier_name(name: object) -> str:
+    s = str(name)\
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)\
+    s = re.sub(r"[^A-Za-z0-9]+", "_", s)\
+    return s.strip("_").lower()
 
 
 def _is_case_count_name(name: object) -> bool:
-    return _normalize_name(name) in CASE_COUNT_NAMES
+    return _normalize_identifier_name(name) in _CASE_COUNT_NAMES
+
+
+def _is_strong_case_count_name(name: object) -> bool:
+    return _normalize_identifier_name(name) in _STRONG_CASE_COUNT_NAMES
 
 
 def _simple_expr(expr: object) -> str:
