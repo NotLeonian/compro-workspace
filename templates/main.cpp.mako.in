@@ -970,20 +970,6 @@ def _adjust_input_variable_types(decls, *, data: dict[str, Any]):
     return result
 
 
-def _read_input_fallback_ll() -> str:
-    return "\n".join(
-        [
-            "    // failed to analyze input format; edit here",
-            "    ll n;",
-            "    in(n);",
-            "    vector<ll> a(n);",
-            "    rep(i, n) {",
-            "        in(a[i]);",
-            "    }",
-        ]
-    )
-
-
 _BRACED_INDEXED_VAR_RE = re.compile(
     r"\b(?P<base>[A-Za-z_][A-Za-z0-9_]*)_\{(?P<subscript>[^{}]+)\}"
 )
@@ -1120,13 +1106,20 @@ def _can_use_stock_read_input(input_format, input_variables) -> bool:
     return True
 
 
+def _read_input_fallback(message: str = "failed to analyze input format") -> str:
+    return "\n".join(
+        [
+            f"    // {message}",
+            "    // TODO: write input receiving code here",
+        ]
+    )
+
+
 def _read_input_unsupported_fallback(message: str) -> str:
     return "\n".join(
         [
             f"    // {message}",
-            "    // The analyzed input seems to be jagged or otherwise unsupported",
-            "    // by onlinejudge_template.generator.cplusplus.read_input().",
-            "    // TODO: edit input receiving code here",
+            "    // TODO: write input receiving code here",
         ]
     )
 
@@ -1146,7 +1139,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         constants = cplusplus.declare_constants(base_data).rstrip()
 
         if analyzed.input_format is None or analyzed.input_variables is None:
-            return constants, _read_input_fallback_ll(), "    // in(t);"
+            return constants, _read_input_fallback(), "    // in(t);"
 
         typed_variables = _adjust_input_variable_types(
             analyzed.input_variables,
@@ -1250,7 +1243,6 @@ source = BASE_TEMPLATE.read_text(encoding="utf-8")
 solve_body_lines = []
 if generated_input:
     solve_body_lines.append(generated_input)
-solve_body_lines.append("    // TODO: edit here")
 solve_body = "\n".join(solve_body_lines)
 solve_replacement = ""
 if constants:
