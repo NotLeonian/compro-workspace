@@ -848,7 +848,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         if analyzed.input_format is None or analyzed.input_variables is None:
             return constants, _read_input_fallback_ll(), "    // in(t);"
 
-        split = _split_top_level_testcases(analyzed)
+        split = _split_top_level_testcases(analyzed, data=data)
 
         typed_variables = _adjust_input_variable_types(
             analyzed.input_variables,
