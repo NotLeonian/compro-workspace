@@ -94,11 +94,70 @@ def _simple_expr(expr: object) -> str:
     return text
 
 
-def _transform_expr(expr: object, *, counter: str) -> str:
-    text = str(expr)
+_BRACED_SUBSCRIPT_RE = re.compile(
+    r"\b(?P<base>[A-Za-z_][A-Za-z0-9_]*)_\{(?P<subscript>[^{}]+)\}"
+)
+
+
+def _split_subscript_list(text: str) -> list[str]:
+    result: list[str] = []
+    depth = 0
+    start = 0
+
+    for i, ch in enumerate(text):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        elif ch == "," and depth == 0:
+            result.append(text[start:i].strip())
+            start = i + 1
+
+    result.append(text[start:].strip())
+    return [part for part in result if part]
+
+
+def _subscript_suffix_name(text: str) -> str:
+    text = _simple_expr(text)
+    text = re.sub(r"\s+", "", text)
+
+    if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*|\d+", text):
+        return text
+
+    text = re.sub(r"[^A-Za-z0-9_]+", "_", text).strip("_")
+    return text or "idx"
+
+
+def _strip_braced_case_subscripts(text: str, *, counter: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        base = match.group("base")
+        subscripts = _split_subscript_list(match.group("subscript"))
+
+        if not subscripts:
+            return match.group(0)
+
+        if _is_testcase_index_expr(subscripts[0], counter=counter):
+            rest = subscripts[1:]
+
+            if not rest:
+                return base
+
+            return base + "_" + "_".join(
+                _subscript_suffix_name(subscript)
+                for subscript in rest
+            )
+
+        return match.group(0)
+
+    return _BRACED_SUBSCRIPT_RE.sub(replace, text)
+
+
+def _transform_expr(expr, *, counter: str):
+    text = _simple_expr(expr)
+    text = _strip_braced_case_subscripts(text, counter=counter)
     escaped_counter = re.escape(counter)
     text = re.sub(
-        rf"\b([A-Za-z_]\w*)_\{{{escaped_counter}\}}(?=\b|_)",
+        rf"\b([A-Za-z_]\w*)_\{{\s*{escaped_counter}\s*\}}(?=\b|_)",
         r"\1",
         text,
     )
