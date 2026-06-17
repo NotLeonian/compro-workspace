@@ -1494,37 +1494,37 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
 
         split = _split_top_level_testcases(analyzed, data=base_data)
 
-    if split is None:
-        input_format = analyzed.input_format
-        input_variables = typed_variables
+        if split is None:
+            input_format = analyzed.input_format
+            input_variables = typed_variables
 
-        if not _can_use_stock_read_input(
-            input_format,
-            input_variables,
-        ):
-            return (
-                constants,
-                _read_input_fallback("detected unsupported input format; edit here"),
-                "    // ::in(t);",
+            if not _can_use_stock_read_input(
+                input_format,
+                input_variables,
+            ):
+                return (
+                    constants,
+                    _read_input_fallback("detected unsupported input format; edit here"),
+                    "    // ::in(t);",
+                )
+
+            input_format, input_variables = _normalize_input_variable_names(
+                input_format,
+                input_variables,
+                data=base_data,
             )
 
-        input_format, input_variables = _normalize_input_variable_names(
-            input_format,
-            input_variables,
-            data=base_data,
-        )
+            input_data = _data_with_input(
+                base_data,
+                input_format=input_format,
+                input_variables=input_variables,
+            )
 
-        input_data = _data_with_input(
-            base_data,
-            input_format=input_format,
-            input_variables=input_variables,
-        )
-
-        return (
-            constants,
-            cplusplus.read_input(input_data, nest=1).rstrip(),
-            "    // ::in(t);",
-        )
+            return (
+                constants,
+                cplusplus.read_input(input_data, nest=1).rstrip(),
+                "    // ::in(t);",
+            )
 
     case_format = _clone_without_case_index(
         body,
