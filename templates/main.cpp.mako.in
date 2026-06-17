@@ -69,7 +69,7 @@ def _scanner(exprs):
     expr_list = [str(expr) for expr, _ in exprs]
     if not expr_list:
         return []
-    return [f"in({', '.join(expr_list)});"]
+    return [f"::in({', '.join(expr_list)});"]
 
 
 def _normalize_identifier_name(name: object) -> str:
@@ -529,7 +529,7 @@ def _data_with_input(
     config["rep_macro"] = "rep"
     config["long_long_int"] = "ll"
     config["scanner"] = lambda exprs: [
-        f"in({', '.join(expr for expr, _ in exprs)});"
+        f"::in({', '.join(expr for expr, _ in exprs)});"
     ]
 
     new_data["config"] = config
@@ -1205,6 +1205,74 @@ _CPP_KEYWORDS = {
     "xor_eq",
 }
 
+_TEMPLATE_HELPER_NAMES = {
+    # input helpers
+    "in",
+    "in_z",
+    "input",
+    "input_z",
+
+    # output/debug helpers
+    "out",
+    "out_and_flush",
+    "out2",
+    "out2_and_flush",
+    "err",
+    "err2",
+    "change_out_sep",
+    "change_err_sep",
+    "change_seps",
+    "sep",
+    "current_sep",
+
+    # common utilities
+    "yes",
+    "no",
+    "yn",
+    "chmin",
+    "chmax",
+    "increment",
+    "decrement",
+    "sum_of",
+    "min_of",
+    "max_of",
+    "gcd_of",
+    "lcm_of",
+    "floor_div",
+    "floor_mod",
+    "floor_div_mod",
+    "ceil_div",
+    "make_vector",
+    "make_array",
+
+    # aliases / constants / macros that users are likely to use
+    "ll",
+    "uint",
+    "ull",
+    "mint",
+    "inf32",
+    "inf64",
+    "ten_powers",
+    "two_powers",
+    "min_heap",
+    "rep",
+    "rep_r",
+    "rep_t",
+    "rep_t_r",
+    "all",
+    "all_r",
+    "iter",
+    "dir",
+    "dir_2",
+    "dir_8",
+
+    # namespaces in the template
+    "atcoder",
+    "suisen",
+}
+
+_RESERVED_GENERATED_NAMES = _CPP_KEYWORDS | _TEMPLATE_HELPER_NAMES
+
 
 def _collect_loop_counter_names(node) -> set[str]:
     if isinstance(node, LoopNode):
@@ -1221,6 +1289,48 @@ def _collect_loop_counter_names(node) -> set[str]:
     return set()
 
 
+def _is_valid_cpp_identifier(name: str) -> bool:
+    return re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) is not None
+
+
+def _sanitize_identifier(name: str) -> str:
+    name = re.sub(r"[^A-Za-z0-9_]", "_", name)
+
+    if not name:
+        name = "x"
+
+    if re.match(r"[0-9]", name):
+        name = "_" + name
+
+    return name
+
+
+def _allocate_safe_identifier(
+    preferred: str,
+    *,
+    current: str,
+    used: set[str],
+    original_names: set[str],
+    loop_counters: set[str],
+) -> str:
+    base = _sanitize_identifier(preferred)
+
+    candidate = base
+    suffix = 0
+
+    while (
+        not _is_valid_cpp_identifier(candidate)
+        or candidate in _RESERVED_GENERATED_NAMES
+        or candidate in loop_counters
+        or candidate in used
+        or (candidate in original_names and candidate != current)
+    ):
+        suffix += 1
+        candidate = f"{base}_{suffix}" if suffix > 1 else f"{base}_"
+
+    return candidate
+
+
 def _make_lowercase_rename_map(input_format, input_variables) -> dict[str, str]:
     names = [str(name) for name in input_variables.keys()]
     original_names = set(names)
@@ -1232,28 +1342,28 @@ def _make_lowercase_rename_map(input_format, input_variables) -> dict[str, str]:
         grouped.setdefault(name.lower(), []).append(name)
 
     rename_map: dict[str, str] = {}
+    used: set[str] = set()
 
-    for lowered, group in grouped.items():
+    for name in names:
+        lowered = name.lower()
+
         # e.g. `A` and `a`
-        if len(group) != 1:
-            continue
+        if len(grouped[lowered]) == 1:
+            preferred = lowered
+        else:
+            preferred = name
 
-        name = group[0]
+        target = _allocate_safe_identifier(
+            preferred,
+            current=name,
+            used=used,
+            original_names=original_names,
+            loop_counters=loop_counters,
+        )
 
-        if name == lowered:
-            continue
-
-        if lowered in _CPP_KEYWORDS:
-            continue
-
-        if lowered in loop_counters:
-            continue
-
-        # An insurance
-        if lowered in original_names and lowered != name:
-            continue
-
-        rename_map[name] = lowered
+        used.add(target)
+        if target != name:
+            rename_map[name] = target
 
     return rename_map
 
@@ -1347,7 +1457,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         base_config["rep_macro"] = "rep"
         base_config["long_long_int"] = "ll"
         base_config["scanner"] = lambda exprs: [
-            f"in({', '.join(expr for expr, _ in exprs)});"
+            f"::in({', '.join(expr for expr, _ in exprs)});"
         ]
         base_data["config"] = base_config
 
@@ -1355,7 +1465,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         constants = cplusplus.declare_constants(base_data).rstrip()
 
         if analyzed.input_format is None or analyzed.input_variables is None:
-            return constants, _read_input_fallback(), "    // in(t);"
+            return constants, _read_input_fallback(), "    // ::in(t);"
 
         typed_variables = _adjust_input_variable_types(
             analyzed.input_variables,
@@ -1386,13 +1496,13 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
                 return (
                     constants,
                     _read_input_fallback("detected unsupported input format; edit here"),
-                    "    // in(t);",
+                    "    // ::in(t);",
                 )
 
             return (
                 constants,
                 cplusplus.read_input(input_data, nest=1).rstrip(),
-                "    // in(t);",
+                "    // ::in(t);",
             )
 
         count_name, counter, body = split
@@ -1426,13 +1536,13 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             return (
                 constants,
                 _read_input_fallback("detected unsupported per-case input format; edit here"),
-                "    in(t);",
+                "    ::in(t);",
             )
 
         return (
             constants,
             cplusplus.read_input(case_data, nest=1).rstrip(),
-            "    in(t);",
+            "    ::in(t);",
         )
 
     except Exception as exc:
@@ -1440,7 +1550,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         return (
             "",
             "    // failed to generate input receiving code; edit here",
-            "    // in(t);",
+            "    // ::in(t);",
         )
 %>\
 <%
@@ -1479,9 +1589,9 @@ if "void solve() {}" in source:
 else:
     logger.warning("the base template does not contain 'void solve() {}'.")
 
-if "    // in(t);" in source:
-    source = source.replace("    // in(t);", testcase_count_reader, 1)
+if "    // ::in(t);" in source:
+    source = source.replace("    // ::in(t);", testcase_count_reader, 1)
 else:
-    logger.warning("the base template does not contain '    // in(t);'.")
+    logger.warning("the base template does not contain '    // ::in(t);'.")
 %>\
 ${source}
