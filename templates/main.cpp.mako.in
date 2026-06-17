@@ -1526,44 +1526,44 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
                 "    // ::in(t);",
             )
 
-    case_format = _clone_without_case_index(
-        body,
-        counter=counter,
-    )
-
-    case_variables = _transform_decls(
-        typed_variables,
-        count_name=count_name,
-        counter=counter,
-    )
-
-    if not _can_use_stock_read_input(
-        case_format,
-        case_variables,
-    ):
-        return (
-            constants,
-            _read_input_fallback("detected unsupported per-case input format; edit here"),
-            "    ::in(t);",
+        case_format = _clone_without_case_index(
+            body,
+            counter=counter,
         )
 
-    case_format, case_variables = _normalize_input_variable_names(
-        case_format,
-        case_variables,
-        data=base_data,
-    )
+        case_variables = _transform_decls(
+            typed_variables,
+            count_name=count_name,
+            counter=counter,
+        )
 
-    case_data = _data_with_input(
-        base_data,
-        input_format=case_format,
-        input_variables=case_variables,
-    )
+        if not _can_use_stock_read_input(
+            case_format,
+            case_variables,
+        ):
+            return (
+                constants,
+                _read_input_fallback("detected unsupported per-case input format; edit here"),
+                "    ::in(t);",
+            )
 
-    return (
-        constants,
-        cplusplus.read_input(case_data, nest=1).rstrip(),
-        "    ::in(t);",
-    )
+        case_format, case_variables = _normalize_input_variable_names(
+            case_format,
+            case_variables,
+            data=base_data,
+        )
+
+        case_data = _data_with_input(
+            base_data,
+            input_format=case_format,
+            input_variables=case_variables,
+        )
+
+        return (
+            constants,
+            cplusplus.read_input(case_data, nest=1).rstrip(),
+            "    ::in(t);",
+        )
 
     except Exception as exc:
         logger.warning("failed to generate input receiving code: %s", exc)
