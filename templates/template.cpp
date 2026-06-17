@@ -855,7 +855,7 @@ int main(void) {
     cout << fixed << setprecision(15);
     cerr << fixed << setprecision(15);
     int t = 1;
-    // in(t);
+    // ::in(t);
     while (t--) {
         solve();
     }

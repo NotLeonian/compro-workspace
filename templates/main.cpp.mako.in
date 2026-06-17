@@ -69,7 +69,7 @@ def _scanner(exprs):
     expr_list = [str(expr) for expr, _ in exprs]
     if not expr_list:
         return []
-    return [f"in({', '.join(expr_list)});"]
+    return [f"::in({', '.join(expr_list)});"]
 
 
 def _normalize_identifier_name(name: object) -> str:
@@ -529,7 +529,7 @@ def _data_with_input(
     config["rep_macro"] = "rep"
     config["long_long_int"] = "ll"
     config["scanner"] = lambda exprs: [
-        f"in({', '.join(expr for expr, _ in exprs)});"
+        f"::in({', '.join(expr for expr, _ in exprs)});"
     ]
 
     new_data["config"] = config
@@ -970,20 +970,6 @@ def _adjust_input_variable_types(decls, *, data: dict[str, Any]):
     return result
 
 
-def _read_input_fallback_ll() -> str:
-    return "\n".join(
-        [
-            "    // failed to analyze input format; edit here",
-            "    ll n;",
-            "    in(n);",
-            "    vector<ll> a(n);",
-            "    rep(i, n) {",
-            "        in(a[i]);",
-            "    }",
-        ]
-    )
-
-
 _BRACED_INDEXED_VAR_RE = re.compile(
     r"\b(?P<base>[A-Za-z_][A-Za-z0-9_]*)_\{(?P<subscript>[^{}]+)\}"
 )
@@ -1120,14 +1106,367 @@ def _can_use_stock_read_input(input_format, input_variables) -> bool:
     return True
 
 
-def _read_input_unsupported_fallback(message: str) -> str:
+def _read_input_fallback(message: str = "failed to analyze input format") -> str:
     return "\n".join(
         [
             f"    // {message}",
-            "    // The analyzed input seems to be jagged or otherwise unsupported",
-            "    // by onlinejudge_template.generator.cplusplus.read_input().",
-            "    // TODO: edit input receiving code here",
+            "    // TODO: write input receiving code here",
         ]
+    )
+
+
+_CPP_KEYWORDS = {
+    "alignas",
+    "alignof",
+    "and",
+    "and_eq",
+    "asm",
+    "auto",
+    "bitand",
+    "bitor",
+    "bool",
+    "break",
+    "case",
+    "catch",
+    "char",
+    "class",
+    "compl",
+    "concept",
+    "const",
+    "consteval",
+    "constexpr",
+    "constinit",
+    "continue",
+    "co_await",
+    "co_return",
+    "co_yield",
+    "decltype",
+    "default",
+    "delete",
+    "do",
+    "double",
+    "dynamic_cast",
+    "else",
+    "enum",
+    "explicit",
+    "export",
+    "extern",
+    "false",
+    "float",
+    "for",
+    "friend",
+    "goto",
+    "if",
+    "inline",
+    "int",
+    "long",
+    "mutable",
+    "namespace",
+    "new",
+    "noexcept",
+    "not",
+    "not_eq",
+    "nullptr",
+    "operator",
+    "or",
+    "or_eq",
+    "private",
+    "protected",
+    "public",
+    "register",
+    "reinterpret_cast",
+    "requires",
+    "return",
+    "short",
+    "signed",
+    "sizeof",
+    "static",
+    "static_assert",
+    "static_cast",
+    "struct",
+    "switch",
+    "template",
+    "this",
+    "thread_local",
+    "throw",
+    "true",
+    "try",
+    "typedef",
+    "typeid",
+    "typename",
+    "union",
+    "unsigned",
+    "using",
+    "virtual",
+    "void",
+    "volatile",
+    "while",
+    "xor",
+    "xor_eq",
+}
+
+_TEMPLATE_HELPER_NAMES = {
+    # input helpers
+    "in",
+    "in_z",
+    "input",
+    "input_z",
+
+    # output/debug helpers
+    "out",
+    "out_and_flush",
+    "out2",
+    "out2_and_flush",
+    "err",
+    "err2",
+    "change_out_sep",
+    "change_err_sep",
+    "change_seps",
+    "sep",
+    "current_sep",
+
+    # common utilities
+    "yes",
+    "no",
+    "yn",
+    "chmin",
+    "chmax",
+    "increment",
+    "decrement",
+    "sum_of",
+    "min_of",
+    "max_of",
+    "gcd_of",
+    "lcm_of",
+    "floor_div",
+    "floor_mod",
+    "floor_div_mod",
+    "ceil_div",
+    "make_vector",
+    "make_array",
+
+    # aliases / constants / macros that users are likely to use
+    "ll",
+    "uint",
+    "ull",
+    "mint",
+    "inf32",
+    "inf64",
+    "ten_powers",
+    "two_powers",
+    "min_heap",
+    "rep",
+    "rep_r",
+    "rep_t",
+    "rep_t_r",
+    "all",
+    "all_r",
+    "iter",
+    "dir",
+    "dir_2",
+    "dir_8",
+
+    # namespaces in the template
+    "atcoder",
+    "suisen",
+}
+
+_RESERVED_GENERATED_NAMES = _CPP_KEYWORDS | _TEMPLATE_HELPER_NAMES
+
+
+def _collect_loop_counter_names(node) -> set[str]:
+    if isinstance(node, LoopNode):
+        return {str(node.name)} | _collect_loop_counter_names(node.body)
+
+    if isinstance(node, SequenceNode):
+        result: set[str] = set()
+
+        for item in node.items:
+            result |= _collect_loop_counter_names(item)
+
+        return result
+
+    return set()
+
+
+def _is_valid_cpp_identifier(name: str) -> bool:
+    return re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) is not None
+
+
+def _sanitize_identifier(name: str) -> str:
+    name = re.sub(r"[^A-Za-z0-9_]", "_", name)
+
+    if not name:
+        name = "x"
+
+    if re.match(r"[0-9]", name):
+        name = "_" + name
+
+    return name
+
+
+def _allocate_safe_identifier(
+    preferred: str,
+    *,
+    current: str,
+    used: set[str],
+    original_names: set[str],
+    reserved_names: set[str],
+) -> str:
+    base = _sanitize_identifier(preferred)
+
+    candidate = base
+    suffix = 0
+
+    while (
+        not _is_valid_cpp_identifier(candidate)
+        or candidate in reserved_names
+        or candidate in used
+        or (candidate in original_names and candidate != current)
+    ):
+        suffix += 1
+        candidate = f"{base}_{suffix}" if suffix > 1 else f"{base}_"
+
+    return candidate
+
+
+def _constant_names(data: dict[str, Any]) -> set[str]:
+    analyzed = data.get("analyzed")
+    constants = getattr(analyzed, "constants", {}) if analyzed is not None else {}
+    return {str(name) for name in constants.keys()}
+
+
+def _make_lowercase_rename_map(
+    input_format,
+    input_variables,
+    *,
+    data: dict[str, Any],
+) -> dict[str, str]:
+    names = [str(name) for name in input_variables.keys()]
+    original_names = set(names)
+    loop_counters = _collect_loop_counter_names(input_format)
+
+    reserved_names = (
+        _RESERVED_GENERATED_NAMES
+        | _constant_names(data)
+        | loop_counters
+    )
+
+    grouped: dict[str, list[str]] = {}
+
+    for name in names:
+        grouped.setdefault(name.lower(), []).append(name)
+
+    rename_map: dict[str, str] = {}
+    used: set[str] = set()
+
+    for name in names:
+        lowered = name.lower()
+
+        # e.g. `A` and `a`
+        if len(grouped[lowered]) == 1:
+            preferred = lowered
+        else:
+            preferred = name
+
+        target = _allocate_safe_identifier(
+            preferred,
+            current=name,
+            used=used,
+            original_names=original_names,
+            reserved_names=reserved_names,
+        )
+
+        used.add(target)
+        if target != name:
+            rename_map[name] = target
+
+    return rename_map
+
+
+def _rename_expr(expr, *, rename_map: dict[str, str]):
+    text = _simple_expr(expr)
+    for old, new in sorted(rename_map.items(), key=lambda item: len(item[0]), reverse=True):
+        escaped = re.escape(old)
+        text = re.sub(
+            rf"(?<![A-Za-z0-9_]){escaped}(?![A-Za-z0-9_])",
+            new,
+            text,
+        )
+    return Expr(text)
+
+
+def _rename_input_format(node, *, rename_map: dict[str, str]):
+    if isinstance(node, ItemNode):
+        return ItemNode(
+            name=rename_map.get(str(node.name), str(node.name)),
+            indices=[
+                _rename_expr(index, rename_map=rename_map)
+                for index in node.indices
+            ],
+        )
+
+    if isinstance(node, NewlineNode):
+        return NewlineNode()
+
+    if isinstance(node, SequenceNode):
+        return SequenceNode(
+            items=[
+                _rename_input_format(item, rename_map=rename_map)
+                for item in node.items
+            ],
+        )
+
+    if isinstance(node, LoopNode):
+        return LoopNode(
+            size=_rename_expr(node.size, rename_map=rename_map),
+            name=str(node.name),
+            body=_rename_input_format(node.body, rename_map=rename_map),
+        )
+
+    raise TypeError(f"unsupported input format node: {type(node).__name__}")
+
+
+def _rename_input_variables(input_variables, *, rename_map: dict[str, str]):
+    result = {}
+
+    for _name, decl in input_variables.items():
+        new_name = VarName(rename_map.get(str(decl.name), str(decl.name)))
+
+        new_decl = decl._replace(
+            name=new_name,
+            dims=[
+                _rename_expr(dim, rename_map=rename_map)
+                for dim in decl.dims
+            ],
+            bases=[
+                _rename_expr(base, rename_map=rename_map)
+                for base in decl.bases
+            ],
+            depending={
+                VarName(rename_map.get(str(dep), str(dep)))
+                for dep in decl.depending
+            },
+        )
+
+        result[new_name] = new_decl
+
+    return result
+
+
+def _normalize_input_variable_names(input_format, input_variables, *, data: dict[str, Any]):
+    rename_map = _make_lowercase_rename_map(
+        input_format,
+        input_variables,
+        data=data,
+    )
+
+    if not rename_map:
+        return input_format, input_variables
+
+    return (
+        _rename_input_format(input_format, rename_map=rename_map),
+        _rename_input_variables(input_variables, rename_map=rename_map),
     )
 
 
@@ -1138,7 +1477,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         base_config["rep_macro"] = "rep"
         base_config["long_long_int"] = "ll"
         base_config["scanner"] = lambda exprs: [
-            f"in({', '.join(expr for expr, _ in exprs)});"
+            f"::in({', '.join(expr for expr, _ in exprs)});"
         ]
         base_data["config"] = base_config
 
@@ -1146,7 +1485,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         constants = cplusplus.declare_constants(base_data).rstrip()
 
         if analyzed.input_format is None or analyzed.input_variables is None:
-            return constants, _read_input_fallback_ll(), "    // in(t);"
+            return constants, _read_input_fallback(), "    // ::in(t);"
 
         typed_variables = _adjust_input_variable_types(
             analyzed.input_variables,
@@ -1156,28 +1495,35 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         split = _split_top_level_testcases(analyzed, data=base_data)
 
         if split is None:
-            input_data = _data_with_input(
-                base_data,
-                input_format=analyzed.input_format,
-                input_variables=typed_variables,
-            )
+            input_format = analyzed.input_format
+            input_variables = typed_variables
 
             if not _can_use_stock_read_input(
-                analyzed.input_format,
-                typed_variables,
+                input_format,
+                input_variables,
             ):
                 return (
                     constants,
-                    _read_input_unsupported_fallback(
-                        "detected jagged input format; edit here"
-                    ),
-                    "    // in(t);",
+                    _read_input_fallback("detected unsupported input format; edit here"),
+                    "    // ::in(t);",
                 )
+
+            input_format, input_variables = _normalize_input_variable_names(
+                input_format,
+                input_variables,
+                data=base_data,
+            )
+
+            input_data = _data_with_input(
+                base_data,
+                input_format=input_format,
+                input_variables=input_variables,
+            )
 
             return (
                 constants,
                 cplusplus.read_input(input_data, nest=1).rstrip(),
-                "    // in(t);",
+                "    // ::in(t);",
             )
 
         count_name, counter, body = split
@@ -1193,28 +1539,32 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             counter=counter,
         )
 
-        case_data = _data_with_input(
-            base_data,
-            input_format=case_format,
-            input_variables=case_variables,
-        )
-
         if not _can_use_stock_read_input(
             case_format,
             case_variables,
         ):
             return (
                 constants,
-                _read_input_unsupported_fallback(
-                    "detected jagged per-case input format; edit here"
-                ),
-                "    in(t);",
+                _read_input_fallback("detected unsupported per-case input format; edit here"),
+                "    ::in(t);",
             )
+
+        case_format, case_variables = _normalize_input_variable_names(
+            case_format,
+            case_variables,
+            data=base_data,
+        )
+
+        case_data = _data_with_input(
+            base_data,
+            input_format=case_format,
+            input_variables=case_variables,
+        )
 
         return (
             constants,
             cplusplus.read_input(case_data, nest=1).rstrip(),
-            "    in(t);",
+            "    ::in(t);",
         )
 
     except Exception as exc:
@@ -1222,7 +1572,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         return (
             "",
             "    // failed to generate input receiving code; edit here",
-            "    // in(t);",
+            "    // ::in(t);",
         )
 %>\
 <%
@@ -1250,7 +1600,6 @@ source = BASE_TEMPLATE.read_text(encoding="utf-8")
 solve_body_lines = []
 if generated_input:
     solve_body_lines.append(generated_input)
-solve_body_lines.append("    // TODO: edit here")
 solve_body = "\n".join(solve_body_lines)
 solve_replacement = ""
 if constants:
@@ -1262,9 +1611,9 @@ if "void solve() {}" in source:
 else:
     logger.warning("the base template does not contain 'void solve() {}'.")
 
-if "    // in(t);" in source:
-    source = source.replace("    // in(t);", testcase_count_reader, 1)
+if "    // ::in(t);" in source:
+    source = source.replace("    // ::in(t);", testcase_count_reader, 1)
 else:
-    logger.warning("the base template does not contain '    // in(t);'.")
+    logger.warning("the base template does not contain '    // ::in(t);'.")
 %>\
 ${source}
