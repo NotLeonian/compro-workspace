@@ -73,9 +73,9 @@ def _scanner(exprs):
 
 
 def _normalize_identifier_name(name: object) -> str:
-    s = str(name)\
-    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)\
-    s = re.sub(r"[^A-Za-z0-9]+", "_", s)\
+    s = str(name)
+    s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
+    s = re.sub(r"[^A-Za-z0-9]+", "_", s)
     return s.strip("_").lower()
 
 
