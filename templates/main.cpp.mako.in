@@ -1,16 +1,201 @@
 <%!
 import pathlib
+import re
 import shutil
 from logging import getLogger
+from typing import Any
 
+import onlinejudge_template.generator.cplusplus as cplusplus
 import onlinejudge_template.generator.hook as hook
+from onlinejudge_template.types import (
+    Expr,
+    ItemNode,
+    LoopNode,
+    NewlineNode,
+    SequenceNode,
+    VarDecl,
+    VarName,
+)
 
 WORKSPACE_ROOT = pathlib.Path(r"__WORKSPACE_ROOT__")
 BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "template.cpp"
 CLANG_FORMAT = WORKSPACE_ROOT / ".clang-format"
+
+CASE_COUNT_NAMES = {
+    "t",
+    "tc",
+    "tt",
+    "testcase",
+    "testcases",
+    "casecount",
+    "numtestcases",
+    "numberoftestcases",
+}
+
+
+def _scanner(exprs):
+    expr_list = [str(expr) for expr, _ in exprs]
+    if not expr_list:
+        return []
+    return [f"in({', '.join(expr_list)});"]
+
+
+def _normalize_name(name: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(name).lower())
+
+
+def _is_case_count_name(name: object) -> bool:
+    return _normalize_name(name) in CASE_COUNT_NAMES
+
+
+def _simple_expr(expr: object) -> str:
+    text = str(expr).strip()
+    while text.startswith("(") and text.endswith(")"):
+        text = text[1:-1].strip()
+    return text
+
+
+def _transform_expr(expr: object, *, counter: str) -> str:
+    text = str(expr)
+    escaped_counter = re.escape(counter)
+    text = re.sub(
+        rf"\b([A-Za-z_]\w*)_\{{{escaped_counter}\}}(?=\b|_)",
+        r"\1",
+        text,
+    )
+    text = re.sub(
+        rf"\b([A-Za-z_]\w*)_{escaped_counter}(?=\b|_)",
+        r"\1",
+        text,
+    )
+    return text
+
+
+def _transform_name(name: object, *, counter: str) -> str:
+    return _transform_expr(name, counter=counter)
+
+
+def _clone_without_case_index(node, *, counter: str):
+    if isinstance(node, ItemNode):
+        name = _transform_name(node.name, counter=counter)
+        indices = [_transform_expr(index, counter=counter) for index in node.indices]
+        if indices and _simple_expr(node.indices[0]) == counter:
+            indices = indices[1:]
+        return ItemNode(name=name, indices=indices)
+    if isinstance(node, NewlineNode):
+        return NewlineNode()
+    if isinstance(node, SequenceNode):
+        return SequenceNode(
+            items=[_clone_without_case_index(item, counter=counter) for item in node.items]
+        )
+    if isinstance(node, LoopNode):
+        return LoopNode(
+            size=_transform_expr(node.size, counter=counter),
+            name=str(node.name),
+            body=_clone_without_case_index(node.body, counter=counter),
+        )
+    return node
+
+
+def _transform_decl(decl, *, count_name: str, counter: str):
+    dims = list(decl.dims)
+    bases = list(decl.bases)
+    if dims and _simple_expr(dims[0]) == count_name:
+        dims = dims[1:]
+        bases = bases[1:]
+    return VarDecl(
+        name=VarName(_transform_name(decl.name, counter=counter)),
+        type=decl.type,
+        dims=[Expr(_transform_expr(dim, counter=counter)) for dim in dims],
+        bases=[Expr(_transform_expr(base, counter=counter)) for base in bases],
+        depending={
+            VarName(_transform_name(dep, counter=counter))
+            for dep in decl.depending
+            if str(dep) != count_name
+        },
+    )
+
+
+def _transform_decls(decls, *, count_name: str, counter: str):
+    result = {}
+    for name, decl in decls.items():
+        if str(name) == count_name:
+            continue
+        transformed = _transform_decl(decl, count_name=count_name, counter=counter)
+        result[transformed.name] = transformed
+    return result
+
+
+def _split_top_level_testcases(analyzed):
+    if analyzed.input_format is None or analyzed.input_variables is None:
+        return None
+    if not isinstance(analyzed.input_format, SequenceNode):
+        return None
+
+    items = [
+        item
+        for item in analyzed.input_format.items
+        if not isinstance(item, NewlineNode)
+    ]
+    if len(items) != 2:
+        return None
+
+    count_item, loop = items
+    if not isinstance(count_item, ItemNode) or count_item.indices:
+        return None
+    if not isinstance(loop, LoopNode):
+        return None
+
+    count_name = str(count_item.name)
+    if not _is_case_count_name(count_name):
+        return None
+    if _simple_expr(loop.size) != count_name:
+        return None
+
+    return count_name, str(loop.name), loop.body
+
+
+def _data_with_input(data: dict[str, Any], *, input_format, input_variables):
+    generated_data = dict(data)
+    generated_data["analyzed"] = data["analyzed"]._replace(
+        input_format=input_format,
+        input_variables=input_variables,
+    )
+    return generated_data
+
+
+def _build_generated_parts(data: dict[str, Any], *, logger):
+    try:
+        analyzed = data["analyzed"]
+        split = _split_top_level_testcases(analyzed)
+        constants = cplusplus.declare_constants(data).rstrip()
+        if split is None:
+            return constants, cplusplus.read_input(data, nest=1).rstrip(), "    // in(t);"
+
+        count_name, counter, body = split
+        case_format = _clone_without_case_index(body, counter=counter)
+        case_variables = _transform_decls(
+            analyzed.input_variables,
+            count_name=count_name,
+            counter=counter,
+        )
+        case_data = _data_with_input(
+            data,
+            input_format=case_format,
+            input_variables=case_variables,
+        )
+        return constants, cplusplus.read_input(case_data, nest=1).rstrip(), "    in(t);"
+    except Exception as exc:
+        logger.warning("failed to generate input receiving code: %s", exc)
+        return "", "    // failed to generate input receiving code; edit here", "    // in(t);"
 %>\
 <%
 logger = getLogger(__name__)
+config = data.setdefault("config", {})
+config["rep_macro"] = "rep"
+config["long_long_int"] = "ll"
+config["scanner"] = _scanner
+config.setdefault("indent", "    ")
 
 if not shutil.which("clang-format"):
     logger.warning("clang-format is not installed.")
@@ -23,6 +208,27 @@ else:
     else:
         hook.register_filter_command(["clang-format", "--style=file"], data=data)
 
+constants, generated_input, testcase_count_reader = _build_generated_parts(data, logger=logger)
 source = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+solve_body_lines = []
+if generated_input:
+    solve_body_lines.append(generated_input)
+solve_body_lines.append("    // TODO: edit here")
+solve_body = "\n".join(solve_body_lines)
+solve_replacement = ""
+if constants:
+    solve_replacement += constants + "\n\n"
+solve_replacement += f"void solve() {{\n{solve_body}\n}}"
+
+if "void solve() {}" in source:
+    source = source.replace("void solve() {}", solve_replacement, 1)
+else:
+    logger.warning("the base template does not contain 'void solve() {}'.")
+
+if "    // in(t);" in source:
+    source = source.replace("    // in(t);", testcase_count_reader, 1)
+else:
+    logger.warning("the base template does not contain '    // in(t);'.")
 %>\
 ${source}
