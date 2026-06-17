@@ -1311,7 +1311,7 @@ def _allocate_safe_identifier(
     current: str,
     used: set[str],
     original_names: set[str],
-    loop_counters: set[str],
+    reserved_names: set[str],
 ) -> str:
     base = _sanitize_identifier(preferred)
 
@@ -1320,8 +1320,7 @@ def _allocate_safe_identifier(
 
     while (
         not _is_valid_cpp_identifier(candidate)
-        or candidate in _RESERVED_GENERATED_NAMES
-        or candidate in loop_counters
+        or candidate in reserved_names
         or candidate in used
         or (candidate in original_names and candidate != current)
     ):
@@ -1331,10 +1330,27 @@ def _allocate_safe_identifier(
     return candidate
 
 
-def _make_lowercase_rename_map(input_format, input_variables) -> dict[str, str]:
+def _constant_names(data: dict[str, Any]) -> set[str]:
+    analyzed = data.get("analyzed")
+    constants = getattr(analyzed, "constants", {}) if analyzed is not None else {}
+    return {str(name) for name in constants.keys()}
+
+
+def _make_lowercase_rename_map(
+    input_format,
+    input_variables,
+    *,
+    data: dict[str, Any],
+) -> dict[str, str]:
     names = [str(name) for name in input_variables.keys()]
     original_names = set(names)
     loop_counters = _collect_loop_counter_names(input_format)
+
+    reserved_names = (
+        _RESERVED_GENERATED_NAMES
+        | _constant_names(data)
+        | loop_counters
+    )
 
     grouped: dict[str, list[str]] = {}
 
@@ -1358,7 +1374,7 @@ def _make_lowercase_rename_map(input_format, input_variables) -> dict[str, str]:
             current=name,
             used=used,
             original_names=original_names,
-            loop_counters=loop_counters,
+            reserved_names=reserved_names,
         )
 
         used.add(target)
@@ -1373,7 +1389,7 @@ def _rename_expr(expr, *, rename_map: dict[str, str]):
     for old, new in sorted(rename_map.items(), key=lambda item: len(item[0]), reverse=True):
         escaped = re.escape(old)
         text = re.sub(
-            rf"(?<![A-Za-z0-9_]){escaped}(?=\b|_)",
+            rf"(?<![A-Za-z0-9_]){escaped}(?![A-Za-z0-9_])",
             new,
             text,
         )
@@ -1438,8 +1454,12 @@ def _rename_input_variables(input_variables, *, rename_map: dict[str, str]):
     return result
 
 
-def _normalize_input_variable_names(input_format, input_variables):
-    rename_map = _make_lowercase_rename_map(input_format, input_variables)
+def _normalize_input_variable_names(input_format, input_variables, *, data: dict[str, Any]):
+    rename_map = _make_lowercase_rename_map(
+        input_format,
+        input_variables,
+        data=data,
+    )
 
     if not rename_map:
         return input_format, input_variables
@@ -1474,76 +1494,76 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
 
         split = _split_top_level_testcases(analyzed, data=base_data)
 
-        if split is None:
-            input_format = analyzed.input_format
-            input_variables = typed_variables
-
-            input_format, input_variables = _normalize_input_variable_names(
-                input_format,
-                input_variables,
-            )
-
-            input_data = _data_with_input(
-                base_data,
-                input_format=input_format,
-                input_variables=input_variables,
-            )
-
-            if not _can_use_stock_read_input(
-                input_format,
-                input_variables,
-            ):
-                return (
-                    constants,
-                    _read_input_fallback("detected unsupported input format; edit here"),
-                    "    // ::in(t);",
-                )
-
-            return (
-                constants,
-                cplusplus.read_input(input_data, nest=1).rstrip(),
-                "    // ::in(t);",
-            )
-
-        count_name, counter, body = split
-
-        case_format = _clone_without_case_index(
-            body,
-            counter=counter,
-        )
-
-        case_variables = _transform_decls(
-            typed_variables,
-            count_name=count_name,
-            counter=counter,
-        )
-
-        case_format, case_variables = _normalize_input_variable_names(
-            case_format,
-            case_variables,
-        )
-
-        case_data = _data_with_input(
-            base_data,
-            input_format=case_format,
-            input_variables=case_variables,
-        )
+    if split is None:
+        input_format = analyzed.input_format
+        input_variables = typed_variables
 
         if not _can_use_stock_read_input(
-            case_format,
-            case_variables,
+            input_format,
+            input_variables,
         ):
             return (
                 constants,
-                _read_input_fallback("detected unsupported per-case input format; edit here"),
-                "    ::in(t);",
+                _read_input_fallback("detected unsupported input format; edit here"),
+                "    // ::in(t);",
             )
+
+        input_format, input_variables = _normalize_input_variable_names(
+            input_format,
+            input_variables,
+            data=base_data,
+        )
+
+        input_data = _data_with_input(
+            base_data,
+            input_format=input_format,
+            input_variables=input_variables,
+        )
 
         return (
             constants,
-            cplusplus.read_input(case_data, nest=1).rstrip(),
+            cplusplus.read_input(input_data, nest=1).rstrip(),
+            "    // ::in(t);",
+        )
+
+    case_format = _clone_without_case_index(
+        body,
+        counter=counter,
+    )
+
+    case_variables = _transform_decls(
+        typed_variables,
+        count_name=count_name,
+        counter=counter,
+    )
+
+    if not _can_use_stock_read_input(
+        case_format,
+        case_variables,
+    ):
+        return (
+            constants,
+            _read_input_fallback("detected unsupported per-case input format; edit here"),
             "    ::in(t);",
         )
+
+    case_format, case_variables = _normalize_input_variable_names(
+        case_format,
+        case_variables,
+        data=base_data,
+    )
+
+    case_data = _data_with_input(
+        base_data,
+        input_format=case_format,
+        input_variables=case_variables,
+    )
+
+    return (
+        constants,
+        cplusplus.read_input(case_data, nest=1).rstrip(),
+        "    ::in(t);",
+    )
 
     except Exception as exc:
         logger.warning("failed to generate input receiving code: %s", exc)
