@@ -81,8 +81,8 @@ def _transform_name(name: object, *, counter: str) -> str:
 
 def _affine_counter_expr(expr: object, *, counter: str):
     """
-    expr が counter + 定数 の形なら (1, 定数) を返す。
-    それ以外なら None を返す。
+    expr が counter + 定数 の形なら (1, 定数) を返す
+    それ以外なら None を返す
     """
     text = _simple_expr(expr)
 
@@ -397,13 +397,28 @@ def _split_top_level_testcases(analyzed, *, data: dict[str, Any]):
     return count_name, str(loop.name), loop.body
 
 
-def _data_with_input(data: dict[str, Any], *, input_format, input_variables):
-    generated_data = dict(data)
-    generated_data["analyzed"] = data["analyzed"]._replace(
+def _data_with_input(
+    data: dict[str, Any],
+    *,
+    input_format,
+    input_variables,
+) -> dict[str, Any]:
+    new_data = dict(data)
+
+    config = dict(data.get("config", {}))
+    config["rep_macro"] = "rep"
+    config["long_long_int"] = "ll"
+    config["scanner"] = lambda exprs: [
+        f"in({', '.join(expr for expr, _ in exprs)});"
+    ]
+
+    new_data["config"] = config
+    new_data["analyzed"] = data["analyzed"]._replace(
         input_format=input_format,
         input_variables=input_variables,
     )
-    return generated_data
+
+    return new_data
 
 
 _NUM_EXPR = r"[-+]?\s*\d[\d\s+\-*/^().]*"
@@ -819,9 +834,9 @@ def _adjust_input_variable_types(decls, *, data: dict[str, Any]):
     result = {}
 
     for name, decl in decls.items():
-        upper_bound = _upper_bound_of_decl(decl, data=data)
-        new_type = _select_integral_var_type(decl, upper_bound=upper_bound)
-        result[name] = decl._replace(type=new_type)
+        result[name] = decl._replace(
+            type=_select_integral_var_type(decl, data=data),
+        )
 
     return result
 
@@ -842,28 +857,37 @@ def _read_input_fallback_ll() -> str:
 
 def _build_generated_parts(data: dict[str, Any], *, logger):
     try:
-        analyzed = data["analyzed"]
-        constants = cplusplus.declare_constants(data).rstrip()
+        base_data = dict(data)
+        base_config = dict(data.get("config", {}))
+        base_config["rep_macro"] = "rep"
+        base_config["long_long_int"] = "ll"
+        base_config["scanner"] = lambda exprs: [
+            f"in({', '.join(expr for expr, _ in exprs)});"
+        ]
+        base_data["config"] = base_config
+
+        analyzed = base_data["analyzed"]
+        constants = cplusplus.declare_constants(base_data).rstrip()
 
         if analyzed.input_format is None or analyzed.input_variables is None:
             return constants, _read_input_fallback_ll(), "    // in(t);"
 
-        split = _split_top_level_testcases(analyzed, data=data)
-
         typed_variables = _adjust_input_variable_types(
             analyzed.input_variables,
-            data=data,
+            data=base_data,
         )
 
+        split = _split_top_level_testcases(analyzed, data=base_data)
+
         if split is None:
-            generated_data = _data_with_input(
-                data,
+            input_data = _data_with_input(
+                base_data,
                 input_format=analyzed.input_format,
                 input_variables=typed_variables,
             )
             return (
                 constants,
-                cplusplus.read_input(generated_data, nest=1).rstrip(),
+                cplusplus.read_input(input_data, nest=1).rstrip(),
                 "    // in(t);",
             )
 
@@ -875,7 +899,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             counter=counter,
         )
         case_data = _data_with_input(
-            data,
+            base_data,
             input_format=case_format,
             input_variables=case_variables,
         )
@@ -884,7 +908,11 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
 
     except Exception as exc:
         logger.warning("failed to generate input receiving code: %s", exc)
-        return "", "    // failed to generate input receiving code; edit here", "    // in(t);"
+        return (
+            "",
+            "    // failed to generate input receiving code; edit here",
+            "    // in(t);",
+        )
 %>\
 <%
 logger = getLogger(__name__)
