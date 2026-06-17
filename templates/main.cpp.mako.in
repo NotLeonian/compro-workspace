@@ -150,6 +150,26 @@ def _clone_without_case_index(node, *, counter: str):
 
         return ItemNode(name=name, indices=indices)
 
+    if isinstance(node, NewlineNode):
+        return NewlineNode()
+
+    if isinstance(node, SequenceNode):
+        return SequenceNode(
+            items=[
+                _clone_without_case_index(item, counter=counter)
+                for item in node.items
+            ],
+        )
+
+    if isinstance(node, LoopNode):
+        return LoopNode(
+            size=_transform_expr(node.size, counter=counter),
+            name=str(node.name),
+            body=_clone_without_case_index(node.body, counter=counter),
+        )
+
+    raise TypeError(f"unsupported input format node: {type(node).__name__}")
+
 
 def _transform_decl(decl, *, count_name: str, counter: str):
     dims = list(decl.dims)
