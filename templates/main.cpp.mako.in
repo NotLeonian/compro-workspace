@@ -87,9 +87,35 @@ def _is_strong_case_count_name(name: object) -> bool:
     return _normalize_identifier_name(name) in _STRONG_CASE_COUNT_NAMES
 
 
-def _simple_expr(expr: object) -> str:
+def _outer_parentheses_wrap_whole_expr(text: str) -> bool:
+    text = text.strip()
+
+    if len(text) < 2:
+        return False
+
+    if text[0] != "(" or text[-1] != ")":
+        return False
+
+    depth = 0
+
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+
+            if depth < 0:
+                return False
+
+            if depth == 0:
+                return i == len(text) - 1
+
+    return False
+
+
+def _simple_expr(expr) -> str:
     text = str(expr).strip()
-    while text.startswith("(") and text.endswith(")"):
+    while _outer_parentheses_wrap_whole_expr(text):
         text = text[1:-1].strip()
     return text
 
