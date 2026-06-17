@@ -171,33 +171,75 @@ def _clone_without_case_index(node, *, counter: str):
     raise TypeError(f"unsupported input format node: {type(node).__name__}")
 
 
+_IDENT_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
+
+
+def _decl_dependencies_from_expr(expr, *, known_names: set[str], counter: str) -> set[VarName]:
+    deps: set[VarName] = set()
+
+    for token in _IDENT_RE.findall(_simple_expr(expr)):
+        candidates = [
+            token,
+            _transform_name(token, counter=counter),
+        ]
+
+        for name in candidates:
+            if name in known_names:
+                deps.add(VarName(name))
+
+    return deps
+
+
 def _transform_decl(decl, *, count_name: str, counter: str):
-    dims = list(decl.dims)
-    bases = list(decl.bases)
+    name = VarName(_transform_name(decl.name, counter=counter))
+
+    dims = [_transform_expr(dim, counter=counter) for dim in decl.dims]
+    bases = [_transform_expr(base, counter=counter) for base in decl.bases]
+
     if dims and _simple_expr(dims[0]) == count_name:
         dims = dims[1:]
         bases = bases[1:]
+
     return VarDecl(
-        name=VarName(_transform_name(decl.name, counter=counter)),
+        name=name,
         type=decl.type,
-        dims=[Expr(_transform_expr(dim, counter=counter)) for dim in dims],
-        bases=[Expr(_transform_expr(base, counter=counter)) for base in bases],
-        depending={
-            VarName(_transform_name(dep, counter=counter))
-            for dep in decl.depending
-            if str(dep) != count_name
-        },
+        dims=dims,
+        bases=bases,
+        depending=set(),  # recalculate from dims later
     )
 
 
 def _transform_decls(decls, *, count_name: str, counter: str):
-    result = {}
+    transformed: dict[VarName, VarDecl] = {}
+
     for name, decl in decls.items():
         if str(name) == count_name:
             continue
-        transformed = _transform_decl(decl, count_name=count_name, counter=counter)
-        result[transformed.name] = transformed
-    return result
+
+        new_decl = _transform_decl(
+            decl,
+            count_name=count_name,
+            counter=counter,
+        )
+        transformed[new_decl.name] = new_decl
+
+    known_names = {str(name) for name in transformed.keys()}
+    fixed: dict[VarName, VarDecl] = {}
+
+    for name, decl in transformed.items():
+        depending: set[VarName] = set()
+
+        for dim in decl.dims:
+            depending |= _decl_dependencies_from_expr(
+                dim,
+                known_names=known_names,
+                counter=counter,
+            )
+
+        depending.discard(name)
+        fixed[name] = decl._replace(depending=depending)
+
+    return fixed
 
 
 def _split_top_level_testcases(analyzed):
