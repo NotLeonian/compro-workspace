@@ -250,7 +250,7 @@ _ABS_FUNC_RE = re.compile(
 
 
 def _inline_text_from_html(s: str) -> str:
-    # Don't remove like `< 10^7`
+    # Don't remove inequality signs
     s = re.sub(
         r"(?is)</?[A-Za-z][A-Za-z0-9:-]*(?:\s[^<>]*)?>",
         "",
@@ -478,7 +478,7 @@ def _constraint_keys_from_token(token: str) -> set[str]:
 
     keys = {token}
 
-    # Arrays
+    # For arrays
     m = re.fullmatch(r"([A-Za-z][A-Za-z0-9]*)(?:_.*)?", token)
     if m:
         keys.add(m.group(1))
