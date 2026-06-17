@@ -505,7 +505,16 @@ def _eval_int_expr(expr: str) -> int | None:
     return value
 
 
-def _inclusive_bound(expr: str, *, strict: bool) -> int | None:
+def _inclusive_lower_bound(expr: str, *, strict: bool) -> int | None:
+    value = _eval_int_expr(expr)
+
+    if value is None:
+        return None
+
+    return value + 1 if strict else value
+
+
+def _inclusive_upper_bound(expr: str, *, strict: bool) -> int | None:
     value = _eval_int_expr(expr)
 
     if value is None:
@@ -548,27 +557,52 @@ def _constraint_keys_from_token(token: str) -> set[str]:
     return keys
 
 
-def _add_bound(bounds: dict[str, int], vars_text: str, upper: int | None) -> None:
+BoundsMap = dict[str, dict[str, int | None]]
+
+
+def _ensure_bound_record(bounds: BoundsMap, key: str) -> dict[str, int | None]:
+    if key not in bounds:
+        bounds[key] = {"lower": None, "upper": None}
+
+    return bounds[key]
+
+
+def _add_lower_bound(bounds: BoundsMap, vars_text: str, lower: int | None) -> None:
+    if lower is None:
+        return
+
+    for token in _split_var_list(vars_text):
+        for key in _constraint_keys_from_token(token):
+            record = _ensure_bound_record(bounds, key)
+            old = record["lower"]
+
+            # Set to the tightest lower limit
+            if old is None or lower > old:
+                record["lower"] = lower
+
+
+def _add_upper_bound(bounds: BoundsMap, vars_text: str, upper: int | None) -> None:
     if upper is None:
         return
 
     for token in _split_var_list(vars_text):
         for key in _constraint_keys_from_token(token):
-            old = bounds.get(key)
+            record = _ensure_bound_record(bounds, key)
+            old = record["upper"]
 
             # Set to the tightest upper limit
             if old is None or upper < old:
-                bounds[key] = upper
+                record["upper"] = upper
 
 
-def _collect_upper_bounds(data: dict[str, Any]) -> dict[str, int]:
+def _collect_bounds(data: dict[str, Any]) -> BoundsMap:
     cache = data.setdefault("__compro_template_cache__", {})
 
-    if "upper_bounds" in cache:
-        return cache["upper_bounds"]
+    if "bounds" in cache:
+        return cache["bounds"]
 
     text = _normalize_constraints(_constraint_text(data))
-    bounds: dict[str, int] = {}
+    bounds: BoundsMap = {}
 
     for line in re.split(r"[\n;。]+", text):
         line = line.strip()
@@ -580,75 +614,117 @@ def _collect_upper_bounds(data: dict[str, Any]) -> dict[str, int]:
         # abs(X_i) <= 10^9
         for pattern in (_ABS_BAR_RE, _ABS_FUNC_RE):
             for m in pattern.finditer(line):
-                upper = _inclusive_bound(
+                upper = _inclusive_upper_bound(
                     m.group("upper"),
                     strict=(m.group("op") == "<"),
                 )
-                _add_bound(bounds, m.group("vars"), upper)
+
+                if upper is None:
+                    continue
+
+                # |X| <= B -> -B <= X <= B
+                _add_upper_bound(bounds, m.group("vars"), upper)
+                _add_lower_bound(bounds, m.group("vars"), -upper)
 
         # 1 <= N <= 2 * 10^5
         # 0 <= A_i < 10^7
-        # -10^9 <= X_i <= 10^9
         for m in _RANGE_RE.finditer(line):
-            upper = _inclusive_bound(
+            lower = _inclusive_lower_bound(
+                m.group("lower"),
+                strict=(m.group("lower_op") == "<"),
+            )
+            upper = _inclusive_upper_bound(
                 m.group("upper"),
                 strict=(m.group("upper_op") == "<"),
             )
-            _add_bound(bounds, m.group("vars"), upper)
 
-        # N <= 2 * 10^5
+            _add_lower_bound(bounds, m.group("vars"), lower)
+            _add_upper_bound(bounds, m.group("vars"), upper)
+
+        # X <= 10^9
         # A_i < 10^7
-        # N, M <= 2 * 10^5
-        for m in _RIGHT_RE.finditer(line):
-            upper = _inclusive_bound(
+        for m in _RIGHT_UPPER_RE.finditer(line):
+            upper = _inclusive_upper_bound(
                 m.group("upper"),
                 strict=(m.group("op") == "<"),
             )
-            _add_bound(bounds, m.group("vars"), upper)
+            _add_upper_bound(bounds, m.group("vars"), upper)
 
-        # 2 * 10^5 >= N
+        # X >= -10^9
+        # X > -10^9
+        for m in _RIGHT_LOWER_RE.finditer(line):
+            lower = _inclusive_lower_bound(
+                m.group("lower"),
+                strict=(m.group("op") == ">"),
+            )
+            _add_lower_bound(bounds, m.group("vars"), lower)
+
+        # 10^9 >= X
         # 10^7 > A_i
-        for m in _LEFT_RE.finditer(line):
-            upper = _inclusive_bound(
+        for m in _LEFT_UPPER_RE.finditer(line):
+            upper = _inclusive_upper_bound(
                 m.group("upper"),
                 strict=(m.group("op") == ">"),
             )
-            _add_bound(bounds, m.group("vars"), upper)
+            _add_upper_bound(bounds, m.group("vars"), upper)
 
-    cache["upper_bounds"] = bounds
+        # -10^9 <= X
+        # -10^9 < X
+        for m in _LEFT_LOWER_RE.finditer(line):
+            lower = _inclusive_lower_bound(
+                m.group("lower"),
+                strict=(m.group("op") == "<"),
+            )
+            _add_lower_bound(bounds, m.group("vars"), lower)
+
+    cache["bounds"] = bounds
     return bounds
 
 
-def _upper_bound_of_decl(decl, *, data: dict[str, Any]) -> int | None:
-    bounds = _collect_upper_bounds(data)
-
+def _bounds_of_decl(decl, *, data: dict[str, Any]) -> tuple[int | None, int | None]:
+    bounds = _collect_bounds(data)
     candidates = _constraint_keys_from_token(str(decl.name))
-    best: int | None = None
+
+    lower: int | None = None
+    upper: int | None = None
 
     for name in candidates:
-        bound = bounds.get(name)
+        record = bounds.get(name)
 
-        if bound is not None and (best is None or bound < best):
-            best = bound
+        if record is None:
+            continue
 
-    return best
+        candidate_lower = record.get("lower")
+        candidate_upper = record.get("upper")
+
+        if candidate_lower is not None:
+            if lower is None or candidate_lower > lower:
+                lower = candidate_lower
+
+        if candidate_upper is not None:
+            if upper is None or candidate_upper < upper:
+                upper = candidate_upper
+
+    return lower, upper
 
 
 INT_LIMIT = 10_000_000
 
 
-def _is_integral_input_type(var_type) -> bool:
-    return var_type in (None, VarType.IndexInt, VarType.ValueInt)
+def _fits_small_int_range(lower_bound: int, upper_bound: int) -> bool:
+    return -10_000_000 < lower_bound and upper_bound < 10_000_000
 
 
-def _select_integral_var_type(decl, *, upper_bound: int | None):
-    if not _is_integral_input_type(decl.type):
+def _select_integral_var_type(decl, *, data: dict[str, Any]):
+    if decl.type not in (None, VarType.IndexInt, VarType.ValueInt):
         return decl.type
 
-    if upper_bound is None:
+    lower_bound, upper_bound = _bounds_of_decl(decl, data=data)
+
+    if lower_bound is None or upper_bound is None:
         return VarType.ValueInt
 
-    if upper_bound < INT_LIMIT:
+    if _fits_small_int_range(lower_bound, upper_bound):
         return VarType.IndexInt
 
     return VarType.ValueInt
