@@ -984,6 +984,153 @@ def _read_input_fallback_ll() -> str:
     )
 
 
+_BRACED_INDEXED_VAR_RE = re.compile(
+    r"\b(?P<base>[A-Za-z_][A-Za-z0-9_]*)_\{(?P<subscript>[^{}]+)\}"
+)
+
+
+def _collect_loop_counters(node) -> set[str]:
+    if isinstance(node, LoopNode):
+        return {str(node.name)} | _collect_loop_counters(node.body)
+
+    if isinstance(node, SequenceNode):
+        counters: set[str] = set()
+        for item in node.items:
+            counters |= _collect_loop_counters(item)
+        return counters
+
+    return set()
+
+
+def _expr_mentions_counter(expr: object, *, counters: set[str]) -> bool:
+    text = _simple_expr(expr)
+
+    for counter in counters:
+        if re.search(rf"\b{re.escape(counter)}\b", text):
+            return True
+
+    return False
+
+
+def _expr_has_indexed_known_variable(
+    expr: object,
+    *,
+    known_names: set[str],
+    counters: set[str],
+) -> bool:
+    text = _simple_expr(expr)
+
+    # e.g. K_{i}, K_{i + 1}, A_{i,j}
+    for m in _BRACED_INDEXED_VAR_RE.finditer(text):
+        base = m.group("base")
+        subscript = m.group("subscript")
+
+        if base in known_names and _expr_mentions_counter(
+            subscript,
+            counters=counters,
+        ):
+            return True
+
+    # e.g. K_i, A_i_j
+    for name in sorted(known_names, key=len, reverse=True):
+        escaped_name = re.escape(name)
+
+        for counter in counters:
+            escaped_counter = re.escape(counter)
+
+            if re.search(
+                rf"\b{escaped_name}_{escaped_counter}(?=\b|_)",
+                text,
+            ):
+                return True
+
+    return False
+
+
+def _format_has_unsafe_indexed_loop_size(
+    node,
+    *,
+    known_names: set[str],
+    active_counters: tuple[str, ...] = (),
+) -> bool:
+    if isinstance(node, LoopNode):
+        counters = set(active_counters)
+
+        if _expr_has_indexed_known_variable(
+            node.size,
+            known_names=known_names,
+            counters=counters,
+        ):
+            return True
+
+        return _format_has_unsafe_indexed_loop_size(
+            node.body,
+            known_names=known_names,
+            active_counters=active_counters + (str(node.name),),
+        )
+
+    if isinstance(node, SequenceNode):
+        return any(
+            _format_has_unsafe_indexed_loop_size(
+                item,
+                known_names=known_names,
+                active_counters=active_counters,
+            )
+            for item in node.items
+        )
+
+    return False
+
+
+def _decls_have_unsafe_indexed_dimensions(
+    decls,
+    *,
+    counters: set[str],
+) -> bool:
+    known_names = {str(name) for name in decls.keys()}
+
+    for decl in decls.values():
+        for dim in decl.dims:
+            if _expr_has_indexed_known_variable(
+                dim,
+                known_names=known_names,
+                counters=counters,
+            ):
+                return True
+
+    return False
+
+
+def _can_use_stock_read_input(input_format, input_variables) -> bool:
+    known_names = {str(name) for name in input_variables.keys()}
+    counters = _collect_loop_counters(input_format)
+
+    if _format_has_unsafe_indexed_loop_size(
+        input_format,
+        known_names=known_names,
+    ):
+        return False
+
+    if _decls_have_unsafe_indexed_dimensions(
+        input_variables,
+        counters=counters,
+    ):
+        return False
+
+    return True
+
+
+def _read_input_unsupported_fallback(message: str) -> str:
+    return "\n".join(
+        [
+            f"    // {message}",
+            "    // The analyzed input seems to be jagged or otherwise unsupported",
+            "    // by onlinejudge_template.generator.cplusplus.read_input().",
+            "    // TODO: edit input receiving code here",
+        ]
+    )
+
+
 def _build_generated_parts(data: dict[str, Any], *, logger):
     try:
         base_data = dict(data)
@@ -1014,6 +1161,19 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
                 input_format=analyzed.input_format,
                 input_variables=typed_variables,
             )
+
+            if not _can_use_stock_read_input(
+                analyzed.input_format,
+                typed_variables,
+            ):
+                return (
+                    constants,
+                    _read_input_unsupported_fallback(
+                        "detected jagged input format; edit here"
+                    ),
+                    "    // in(t);",
+                )
+
             return (
                 constants,
                 cplusplus.read_input(input_data, nest=1).rstrip(),
@@ -1021,19 +1181,41 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             )
 
         count_name, counter, body = split
-        case_format = _clone_without_case_index(body, counter=counter)
+
+        case_format = _clone_without_case_index(
+            body,
+            counter=counter,
+        )
+
         case_variables = _transform_decls(
             typed_variables,
             count_name=count_name,
             counter=counter,
         )
+
         case_data = _data_with_input(
             base_data,
             input_format=case_format,
             input_variables=case_variables,
         )
 
-        return constants, cplusplus.read_input(case_data, nest=1).rstrip(), "    in(t);"
+        if not _can_use_stock_read_input(
+            case_format,
+            case_variables,
+        ):
+            return (
+                constants,
+                _read_input_unsupported_fallback(
+                    "detected jagged per-case input format; edit here"
+                ),
+                "    in(t);",
+            )
+
+        return (
+            constants,
+            cplusplus.read_input(case_data, nest=1).rstrip(),
+            "    in(t);",
+        )
 
     except Exception as exc:
         logger.warning("failed to generate input receiving code: %s", exc)
