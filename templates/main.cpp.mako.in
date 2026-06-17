@@ -1115,12 +1115,228 @@ def _read_input_fallback(message: str = "failed to analyze input format") -> str
     )
 
 
-def _read_input_unsupported_fallback(message: str) -> str:
-    return "\n".join(
-        [
-            f"    // {message}",
-            "    // TODO: write input receiving code here",
-        ]
+_CPP_KEYWORDS = {
+    "alignas",
+    "alignof",
+    "and",
+    "and_eq",
+    "asm",
+    "auto",
+    "bitand",
+    "bitor",
+    "bool",
+    "break",
+    "case",
+    "catch",
+    "char",
+    "class",
+    "compl",
+    "concept",
+    "const",
+    "consteval",
+    "constexpr",
+    "constinit",
+    "continue",
+    "co_await",
+    "co_return",
+    "co_yield",
+    "decltype",
+    "default",
+    "delete",
+    "do",
+    "double",
+    "dynamic_cast",
+    "else",
+    "enum",
+    "explicit",
+    "export",
+    "extern",
+    "false",
+    "float",
+    "for",
+    "friend",
+    "goto",
+    "if",
+    "inline",
+    "int",
+    "long",
+    "mutable",
+    "namespace",
+    "new",
+    "noexcept",
+    "not",
+    "not_eq",
+    "nullptr",
+    "operator",
+    "or",
+    "or_eq",
+    "private",
+    "protected",
+    "public",
+    "register",
+    "reinterpret_cast",
+    "requires",
+    "return",
+    "short",
+    "signed",
+    "sizeof",
+    "static",
+    "static_assert",
+    "static_cast",
+    "struct",
+    "switch",
+    "template",
+    "this",
+    "thread_local",
+    "throw",
+    "true",
+    "try",
+    "typedef",
+    "typeid",
+    "typename",
+    "union",
+    "unsigned",
+    "using",
+    "virtual",
+    "void",
+    "volatile",
+    "while",
+    "xor",
+    "xor_eq",
+}
+
+
+def _collect_loop_counter_names(node) -> set[str]:
+    if isinstance(node, LoopNode):
+        return {str(node.name)} | _collect_loop_counter_names(node.body)
+
+    if isinstance(node, SequenceNode):
+        result: set[str] = set()
+
+        for item in node.items:
+            result |= _collect_loop_counter_names(item)
+
+        return result
+
+    return set()
+
+
+def _make_lowercase_rename_map(input_format, input_variables) -> dict[str, str]:
+    names = [str(name) for name in input_variables.keys()]
+    original_names = set(names)
+    loop_counters = _collect_loop_counter_names(input_format)
+
+    grouped: dict[str, list[str]] = {}
+
+    for name in names:
+        grouped.setdefault(name.lower(), []).append(name)
+
+    rename_map: dict[str, str] = {}
+
+    for lowered, group in grouped.items():
+        # e.g. `A` and `a`
+        if len(group) != 1:
+            continue
+
+        name = group[0]
+
+        if name == lowered:
+            continue
+
+        if lowered in _CPP_KEYWORDS:
+            continue
+
+        if lowered in loop_counters:
+            continue
+
+        # An insurance
+        if lowered in original_names and lowered != name:
+            continue
+
+        rename_map[name] = lowered
+
+    return rename_map
+
+
+def _rename_expr(expr, *, rename_map: dict[str, str]):
+    text = _simple_expr(expr)
+    for old, new in sorted(rename_map.items(), key=lambda item: len(item[0]), reverse=True):
+        escaped = re.escape(old)
+        text = re.sub(
+            rf"(?<![A-Za-z0-9_]){escaped}(?=\b|_)",
+            new,
+            text,
+        )
+    return Expr(text)
+
+
+def _rename_input_format(node, *, rename_map: dict[str, str]):
+    if isinstance(node, ItemNode):
+        return ItemNode(
+            name=rename_map.get(str(node.name), str(node.name)),
+            indices=[
+                _rename_expr(index, rename_map=rename_map)
+                for index in node.indices
+            ],
+        )
+
+    if isinstance(node, NewlineNode):
+        return NewlineNode()
+
+    if isinstance(node, SequenceNode):
+        return SequenceNode(
+            items=[
+                _rename_input_format(item, rename_map=rename_map)
+                for item in node.items
+            ],
+        )
+
+    if isinstance(node, LoopNode):
+        return LoopNode(
+            size=_rename_expr(node.size, rename_map=rename_map),
+            name=str(node.name),
+            body=_rename_input_format(node.body, rename_map=rename_map),
+        )
+
+    raise TypeError(f"unsupported input format node: {type(node).__name__}")
+
+
+def _rename_input_variables(input_variables, *, rename_map: dict[str, str]):
+    result = {}
+
+    for _name, decl in input_variables.items():
+        new_name = VarName(rename_map.get(str(decl.name), str(decl.name)))
+
+        new_decl = decl._replace(
+            name=new_name,
+            dims=[
+                _rename_expr(dim, rename_map=rename_map)
+                for dim in decl.dims
+            ],
+            bases=[
+                _rename_expr(base, rename_map=rename_map)
+                for base in decl.bases
+            ],
+            depending={
+                VarName(rename_map.get(str(dep), str(dep)))
+                for dep in decl.depending
+            },
+        )
+
+        result[new_name] = new_decl
+
+    return result
+
+
+def _normalize_input_variable_names(input_format, input_variables):
+    rename_map = _make_lowercase_rename_map(input_format, input_variables)
+
+    if not rename_map:
+        return input_format, input_variables
+
+    return (
+        _rename_input_format(input_format, rename_map=rename_map),
+        _rename_input_variables(input_variables, rename_map=rename_map),
     )
 
 
@@ -1149,21 +1365,27 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         split = _split_top_level_testcases(analyzed, data=base_data)
 
         if split is None:
+            input_format = analyzed.input_format
+            input_variables = typed_variables
+
+            input_format, input_variables = _normalize_input_variable_names(
+                input_format,
+                input_variables,
+            )
+
             input_data = _data_with_input(
                 base_data,
-                input_format=analyzed.input_format,
-                input_variables=typed_variables,
+                input_format=input_format,
+                input_variables=input_variables,
             )
 
             if not _can_use_stock_read_input(
-                analyzed.input_format,
-                typed_variables,
+                input_format,
+                input_variables,
             ):
                 return (
                     constants,
-                    _read_input_unsupported_fallback(
-                        "detected jagged input format; edit here"
-                    ),
+                    _read_input_fallback("detected unsupported input format; edit here"),
                     "    // in(t);",
                 )
 
@@ -1186,6 +1408,11 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             counter=counter,
         )
 
+        case_format, case_variables = _normalize_input_variable_names(
+            case_format,
+            case_variables,
+        )
+
         case_data = _data_with_input(
             base_data,
             input_format=case_format,
@@ -1198,9 +1425,7 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         ):
             return (
                 constants,
-                _read_input_unsupported_fallback(
-                    "detected jagged per-case input format; edit here"
-                ),
+                _read_input_fallback("detected unsupported per-case input format; edit here"),
                 "    in(t);",
             )
 
