@@ -1526,6 +1526,8 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
                 "    // ::in(t);",
             )
 
+        count_name, counter, body = split
+
         case_format = _clone_without_case_index(
             body,
             counter=counter,
