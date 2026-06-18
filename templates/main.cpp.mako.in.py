@@ -440,7 +440,6 @@ def _has_testcase_text_signal(
     allow_bare_cases: bool = True,
 ) -> bool:
     text = _normalize_for_testcase_signal(_constraint_text(data))
-    name = _math_var_pattern(count_name)
 
     # シングルテストケースの問題を
     # マルチテストケースと誤検出しないように
@@ -448,18 +447,29 @@ def _has_testcase_text_signal(
     test_cases = r"test\s*(?:cases\b|case\s*\(\s*s\s*\))"
     cases = r"(?:cases\b|case\s*\(\s*s\s*\))"
 
-    strong_patterns = [
-        # T test cases
-        rf"{name}\s+{test_cases}",
-        # T denotes / represents / is the number of test cases
-        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+{test_cases}",
-        # number of test cases is T
-        rf"\bnumber\s+of\s+{test_cases}[^.\n;。]*{name}",
-        # first line contains T ... test cases
-        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\b{test_cases}",
-        # Japanese
-        rf"{name}\s*個\s*の\s*テストケース",
-    ]
+    testcase_count_names = [str(count_name).lower()]
+    if "t" not in testcase_count_names:
+        testcase_count_names.append("t")
+
+    strong_patterns = []
+
+    for candidate in testcase_count_names:
+        candidate_name = _math_var_pattern(candidate)
+
+        strong_patterns += [
+            # T test cases
+            rf"{candidate_name}\s+{test_cases}",
+            # T denotes / represents / is the number of test cases
+            rf"{candidate_name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+{test_cases}",
+            # number of test cases is T
+            rf"\bnumber\s+of\s+{test_cases}[^.\n;。]*{candidate_name}",
+            # first line contains T ... test cases
+            rf"\bfirst\s+line\b[^.\n;。]*{candidate_name}[^.\n;。]*\b{test_cases}",
+            # Japanese
+            rf"{candidate_name}\s*個\s*の\s*テストケース",
+        ]
+
+    name = _math_var_pattern(count_name)
 
     bare_case_patterns = [
         # T cases
@@ -493,11 +503,7 @@ def _has_testcase_text_signal(
     if any(re.search(pattern, text) for pattern in patterns):
         return True
 
-    case_index_endpoint_names = [str(count_name).lower()]
-    if "t" not in case_index_endpoint_names:
-        case_index_endpoint_names.append("t")
-
-    for endpoint in case_index_endpoint_names:
+    for endpoint in testcase_count_names:
         endpoint_name = _math_var_pattern(endpoint)
         case_index_pattern = (
             rf"\bcase\s*_?\s*1\b[\s\S]{{0,500}}"
