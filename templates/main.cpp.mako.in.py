@@ -442,28 +442,34 @@ def _has_testcase_text_signal(
     text = _normalize_for_testcase_signal(_constraint_text(data))
     name = _math_var_pattern(count_name)
 
+    # シングルテストケースの問題を
+    # マルチテストケースと誤検出しないように
+    # 特に冠詞 a を変数 `a` と誤検出しないように
+    test_cases = r"test\s*(?:cases\b|case\s*\(\s*s\s*\))"
+    cases = r"(?:cases\b|case\s*\(\s*s\s*\))"
+
     strong_patterns = [
         # T test cases
-        rf"{name}\s+test\s*cases?\b",
+        rf"{name}\s+{test_cases}",
         # T denotes / represents / is the number of test cases
-        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+test\s*cases?\b",
+        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+{test_cases}",
         # number of test cases is T
-        rf"\bnumber\s+of\s+test\s*cases?\b[^.\n;。]*{name}",
+        rf"\bnumber\s+of\s+{test_cases}[^.\n;。]*{name}",
         # first line contains T ... test cases
-        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\btest\s*cases?\b",
+        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\b{test_cases}",
         # Japanese
         rf"{name}\s*個\s*の\s*テストケース",
     ]
 
     bare_case_patterns = [
         # T cases
-        rf"{name}\s+cases?\b",
+        rf"{name}\s+{cases}",
         # T denotes / represents / is the number of cases
-        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+cases?\b",
+        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+{cases}",
         # number of cases is T
-        rf"\bnumber\s+of\s+cases?\b[^.\n;。]*{name}",
+        rf"\bnumber\s+of\s+{cases}[^.\n;。]*{name}",
         # first line contains T ... cases
-        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\bcases?\b",
+        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\b{cases}",
     ]
 
     patterns = list(strong_patterns)
@@ -502,13 +508,13 @@ def _has_testcase_text_signal(
 
         endpoint_testcase_patterns = [
             # T test cases
-            rf"{endpoint_name}\s+test\s*cases?\b",
+            rf"{endpoint_name}\s+{test_cases}",
             # T denotes / represents / is the number of test cases
-            rf"{endpoint_name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+test\s*cases?\b",
+            rf"{endpoint_name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+{test_cases}",
             # number of test cases is T
-            rf"\bnumber\s+of\s+test\s*cases?\b[^.\n;。]*{endpoint_name}",
+            rf"\bnumber\s+of\s+{test_cases}[^.\n;。]*{endpoint_name}",
             # first line contains T ... test cases
-            rf"\bfirst\s+line\b[^.\n;。]*{endpoint_name}[^.\n;。]*\btest\s*cases?\b",
+            rf"\bfirst\s+line\b[^.\n;。]*{endpoint_name}[^.\n;。]*\b{test_cases}",
             # Japanese
             rf"{endpoint_name}\s*個\s*の\s*テストケース",
         ]
