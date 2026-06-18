@@ -29,6 +29,14 @@ MAKO_MODULE_END_WITHOUT_CONTINUATION = "\n%>"
 
 
 def user_config_dir() -> pathlib.Path:
+    """
+    oj-prepare が使う online-judge-tools の設定ディレクトリを返す。
+
+    template-generator の実装は
+    appdirs.user_config_dir("online-judge-tools") を
+    使っているので、appdirs があればそれに合わせる。
+    """
+
     try:
         import appdirs
     except ImportError:
@@ -58,11 +66,19 @@ def user_config_dir() -> pathlib.Path:
 
 
 def toml_string(s: str) -> str:
+    """
+    TOML の basic string を返す。
+    """
+
     # TOML の basic string は JSON 文字列とかなり互換性がある
     return json.dumps(s, ensure_ascii=False)
 
 
 def is_under(path: pathlib.Path, base: pathlib.Path) -> bool:
+    """
+    path が base の内部にあるかを判定する。
+    """
+
     try:
         path.relative_to(base)
         return True
@@ -71,6 +87,10 @@ def is_under(path: pathlib.Path, base: pathlib.Path) -> bool:
 
 
 def find_parent_git_dir(path: pathlib.Path) -> pathlib.Path | None:
+    """
+    path やその親に .git があれば、そのディレクトリを返す。
+    """
+
     path = path.resolve()
     for p in [path, *path.parents]:
         if (p / ".git").exists():
@@ -79,6 +99,10 @@ def find_parent_git_dir(path: pathlib.Path) -> pathlib.Path | None:
 
 
 def backup_file(path: pathlib.Path, *, no_backup: bool) -> None:
+    """
+    no_backup が false である場合、path のファイルをバックアップする。
+    """
+
     if no_backup or not path.exists():
         return
 
@@ -89,6 +113,10 @@ def backup_file(path: pathlib.Path, *, no_backup: bool) -> None:
 
 
 def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
+    """
+    src から dst にファイルをコピーする。
+    """
+
     if not src.exists():
         raise SystemExit(f"error: missing source item: {src}")
 
@@ -117,12 +145,21 @@ def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
 
 
 def write_text(path: pathlib.Path, content: str) -> None:
+    """
+    path のファイルに contest を書き込む。
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     print(f"wrote: {path}", file=sys.stderr)
 
 
 def write_executable(path: pathlib.Path, content: str) -> None:
+    """
+    path のファイルに contest を書き込んだ後に
+    実行ファイルとしての権限を与える。
+    """
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     mode = path.stat().st_mode
