@@ -434,7 +434,7 @@ def _math_var_pattern(name: str) -> str:
 
 def _has_testcase_text_signal(data: dict[str, Any], *, count_name: str) -> bool:
     text = _normalize_for_testcase_signal(_constraint_text(data))
-    name = _math_var_pattern(count_name)
+    name = rf"(?:{_math_var_pattern(count_name)}|{_math_var_pattern('t')})"
 
     patterns = [
         # T test cases
@@ -448,6 +448,8 @@ def _has_testcase_text_signal(data: dict[str, Any], *, count_name: str) -> bool:
         # each test case / for each test case
         r"\bfor\s+each\s+test\s*case\b",
         r"\beach\s+test\s*case\b",
+        # input format: case_1 ... case_T
+        r"\bcase\s*_?\s*1\b[\s\S]{0,500}\bcase\s*_?\s*t\b",
         # Japanese
         rf"{name}\s*個\s*の\s*テストケース",
         r"マルチテストケース",
@@ -492,7 +494,14 @@ def _split_top_level_testcases(analyzed, *, data: dict[str, Any]):
 
     count_name = str(count_node.name)
 
-    if not _is_case_count_name(count_name):
+    if (
+        not _is_case_count_name(count_name)
+        and force_multi is not True
+        and not _has_testcase_text_signal(
+            data,
+            count_name=count_name,
+        )
+    ):
         return None
 
     if _simple_expr(loop.size) != count_name:
