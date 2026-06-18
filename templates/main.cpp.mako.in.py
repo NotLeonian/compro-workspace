@@ -109,7 +109,7 @@ def _outer_parentheses_wrap_whole_expr(text: str) -> bool:
     return False
 
 
-def _simple_expr(expr) -> str:
+def _simple_expr(expr: object) -> str:
     text = str(expr).strip()
     while _outer_parentheses_wrap_whole_expr(text):
         text = text[1:-1].strip()
@@ -175,7 +175,7 @@ def _strip_braced_case_subscripts(text: str, *, counter: str) -> str:
     return _BRACED_SUBSCRIPT_RE.sub(replace, text)
 
 
-def _transform_expr(expr, *, counter: str):
+def _transform_expr(expr: object, *, counter: str) -> Expr:
     text = _simple_expr(expr)
     text = _strip_braced_case_subscripts(text, counter=counter)
     escaped_counter = re.escape(counter)
@@ -189,11 +189,11 @@ def _transform_expr(expr, *, counter: str):
         r"\1",
         text,
     )
-    return text
+    return Expr(text)
 
 
 def _transform_name(name: object, *, counter: str) -> str:
-    return _transform_expr(name, counter=counter)
+    return str(_transform_expr(name, counter=counter))
 
 
 def _affine_counter_expr(expr: object, *, counter: str):
@@ -308,11 +308,11 @@ def _decl_dependencies_from_expr(
     return deps
 
 
-def _transform_decl(decl, *, count_name: str, counter: str):
+def _transform_decl(decl: VarDecl, *, count_name: str, counter: str) -> VarDecl:
     name = VarName(_transform_name(decl.name, counter=counter))
 
-    dims = [_transform_expr(dim, counter=counter) for dim in decl.dims]
-    bases = [_transform_expr(base, counter=counter) for base in decl.bases]
+    dims: list[Expr] = [_transform_expr(dim, counter=counter) for dim in decl.dims]
+    bases: list[Expr] = [_transform_expr(base, counter=counter) for base in decl.bases]
 
     if dims and _simple_expr(dims[0]) == count_name:
         dims = dims[1:]
@@ -327,7 +327,9 @@ def _transform_decl(decl, *, count_name: str, counter: str):
     )
 
 
-def _transform_decls(decls, *, count_name: str, counter: str):
+def _transform_decls(
+    decls: dict[VarName, VarDecl], *, count_name: str, counter: str
+) -> dict[VarName, VarDecl]:
     transformed: dict[VarName, VarDecl] = {}
 
     for name, decl in decls.items():
