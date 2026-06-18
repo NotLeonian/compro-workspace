@@ -442,21 +442,6 @@ def _has_testcase_text_signal(
     text = _normalize_for_testcase_signal(_constraint_text(data))
     name = _math_var_pattern(count_name)
 
-    case_index_endpoint_names = [str(count_name).lower()]
-
-    # online-judge-template-generator は
-    # 先頭のテストケース数 `T` に対して
-    #  `a` や `n` などの変数名を割り当てることがある
-    # その fallback として `"t"` を入れておく
-    if "t" not in case_index_endpoint_names:
-        case_index_endpoint_names.append("t")
-
-    case_index_endpoint = (
-        "(?:"
-        + "|".join(re.escape(candidate) for candidate in case_index_endpoint_names)
-        + ")"
-    )
-
     strong_patterns = [
         # T test cases
         rf"{name}\s+test\s*cases?\b",
@@ -466,8 +451,6 @@ def _has_testcase_text_signal(
         rf"\bnumber\s+of\s+test\s*cases?\b[^.\n;。]*{name}",
         # first line contains T ... test cases
         rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\btest\s*cases?\b",
-        # input format: case_1 ... case_{count_name}
-        rf"\bcase\s*_?\s*1\b[\s\S]{{0,500}}\bcase\s*_?\s*{case_index_endpoint}(?![a-z0-9_])",
         # Japanese
         rf"{name}\s*個\s*の\s*テストケース",
     ]
@@ -496,7 +479,44 @@ def _has_testcase_text_signal(
             r"マルチテストケース",
         ]
 
-    return any(re.search(pattern, text) for pattern in patterns)
+    # online-judge-template-generator は
+    # 先頭のテストケース数 `T` に対して
+    #  `a` や `n` などの変数名を割り当てることがある。
+    # 問題文からマルチテストケースであるとわかる場合のみ
+    # fallback として `"t"` を入れておく。
+    if any(re.search(pattern, text) for pattern in patterns):
+        return True
+
+    case_index_endpoint_names = [str(count_name).lower()]
+    if "t" not in case_index_endpoint_names:
+        case_index_endpoint_names.append("t")
+
+    for endpoint in case_index_endpoint_names:
+        endpoint_name = _math_var_pattern(endpoint)
+        case_index_pattern = (
+            rf"\bcase\s*_?\s*1\b[\s\S]{{0,500}}"
+            rf"\bcase\s*_?\s*{re.escape(endpoint)}(?![a-z0-9_])"
+        )
+        if not re.search(case_index_pattern, text):
+            continue
+
+        endpoint_testcase_patterns = [
+            # T test cases
+            rf"{endpoint_name}\s+test\s*cases?\b",
+            # T denotes / represents / is the number of test cases
+            rf"{endpoint_name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+test\s*cases?\b",
+            # number of test cases is T
+            rf"\bnumber\s+of\s+test\s*cases?\b[^.\n;。]*{endpoint_name}",
+            # first line contains T ... test cases
+            rf"\bfirst\s+line\b[^.\n;。]*{endpoint_name}[^.\n;。]*\btest\s*cases?\b",
+            # Japanese
+            rf"{endpoint_name}\s*個\s*の\s*テストケース",
+        ]
+
+        if any(re.search(pattern, text) for pattern in endpoint_testcase_patterns):
+            return True
+
+    return False
 
 
 def _split_top_level_testcases(analyzed, *, data: dict[str, Any]):
