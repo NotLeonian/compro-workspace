@@ -30,13 +30,6 @@ MAKO_MODULE_END_WITHOUT_CONTINUATION = "\n%>"
 
 
 def user_config_dir() -> pathlib.Path:
-    """
-    oj-prepare が使う online-judge-tools の設定ディレクトリを返す。
-
-    template-generator の実装は appdirs.user_config_dir("online-judge-tools")
-    を使っているので、appdirs があればそれに合わせる。
-    """
-
     try:
         import appdirs
     except ImportError:
@@ -66,19 +59,11 @@ def user_config_dir() -> pathlib.Path:
 
 
 def toml_string(s: str) -> str:
-    """
-    TOML の basic string を返す。
-    """
-
     # TOML の basic string は JSON 文字列とかなり互換性がある
     return json.dumps(s, ensure_ascii=False)
 
 
 def is_under(path: pathlib.Path, base: pathlib.Path) -> bool:
-    """
-    path が base の内部にあるかを判定する。
-    """
-
     try:
         path.relative_to(base)
         return True
@@ -87,10 +72,6 @@ def is_under(path: pathlib.Path, base: pathlib.Path) -> bool:
 
 
 def find_parent_git_dir(path: pathlib.Path) -> pathlib.Path | None:
-    """
-    path やその親に .git があれば、そのディレクトリを返す。
-    """
-
     path = path.resolve()
     for p in [path, *path.parents]:
         if (p / ".git").exists():
@@ -99,10 +80,6 @@ def find_parent_git_dir(path: pathlib.Path) -> pathlib.Path | None:
 
 
 def backup_file(path: pathlib.Path, *, no_backup: bool) -> None:
-    """
-    no_backup が false である場合、path のファイルをバックアップする。
-    """
-
     if no_backup or not path.exists():
         return
 
@@ -113,10 +90,6 @@ def backup_file(path: pathlib.Path, *, no_backup: bool) -> None:
 
 
 def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
-    """
-    src から dst にファイルをコピーする。
-    """
-
     if not src.exists():
         raise SystemExit(f"error: missing source item: {src}")
 
@@ -145,21 +118,12 @@ def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
 
 
 def write_text(path: pathlib.Path, content: str) -> None:
-    """
-    path のファイルに contest を書き込む。
-    """
-
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     print(f"wrote: {path}", file=sys.stderr)
 
 
 def write_executable(path: pathlib.Path, content: str) -> None:
-    """
-    path のファイルに contest を書き込んだあと、
-    実行ファイルとしての権限を与える。
-    """
-
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     mode = path.stat().st_mode
@@ -172,9 +136,11 @@ def split_first_mako_module_block(
     path: pathlib.Path,
 ) -> tuple[str, str]:
     """
-    最初の Mako module block（`<%! ... %>`）の中身と、それ以降の本文に分ける。
+    最初の Mako module block（`<%! ... %>`）の中身と
+    それ以降の本文に分ける。
 
-    ここでは最初の `<%! ... %>` だけを扱う。後続の `<% ... %>` block は本文として残す。
+    この関数では最初の `<%! ... %>` だけを扱う。
+    後続の `<% ... %>` block は本文として残す。
     """
 
     if not text.startswith(MAKO_MODULE_START):
@@ -196,9 +162,11 @@ def split_first_mako_module_block(
 
 def read_mako_module_code(path: pathlib.Path) -> str:
     """
-    main.cpp.mako.in.py から、最初の `<%! ... %>` に挿入する Python コードを読む。
+    main.cpp.mako.in.py から
+    最初の `<%! ... %>` に挿入する Python ソースコードを読む。
 
-    main.cpp.mako.in.py は Mako の囲みを含まない、通常の Python ファイルである前提。
+    main.cpp.mako.in.py は Mako の囲みを含まない
+    通常の Python ソースコードであることを仮定する。
     """
 
     if not path.exists():
@@ -209,7 +177,7 @@ def read_mako_module_code(path: pathlib.Path) -> str:
 
 def build_bridge_template(mako_in_path: pathlib.Path, module_path: pathlib.Path) -> str:
     """
-    main.cpp.mako.in の最初の module block に sidecar の Python コードを挿入する。
+    main.cpp.mako.in の最初の module block に Python ソースコードを挿入する。
     """
 
     template = mako_in_path.read_text(encoding="utf-8")
