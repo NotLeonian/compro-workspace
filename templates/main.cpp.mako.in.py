@@ -432,9 +432,14 @@ def _math_var_pattern(name: str) -> str:
     return rf"(?<![a-z0-9_]){name}(?![a-z0-9_])"
 
 
-def _has_testcase_text_signal(data: dict[str, Any], *, count_name: str) -> bool:
+def _has_testcase_text_signal(
+    data: dict[str, Any],
+    *,
+    count_name: str,
+    allow_generic: bool = True,
+) -> bool:
     text = _normalize_for_testcase_signal(_constraint_text(data))
-    name = rf"(?:{_math_var_pattern(count_name)}|{_math_var_pattern('t')})"
+    name = _math_var_pattern(count_name)
 
     patterns = [
         # T test cases
@@ -445,15 +450,20 @@ def _has_testcase_text_signal(data: dict[str, Any], *, count_name: str) -> bool:
         rf"\bnumber\s+of\s+(?:test\s*)?cases?\b[^.\n;。]*{name}",
         # first line contains T ... test cases
         rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\b(?:test\s*)?cases?\b",
-        # each test case / for each test case
-        r"\bfor\s+each\s+test\s*case\b",
-        r"\beach\s+test\s*case\b",
         # input format: case_1 ... case_T
         r"\bcase\s*_?\s*1\b[\s\S]{0,500}\bcase\s*_?\s*t\b",
         # Japanese
         rf"{name}\s*個\s*の\s*テストケース",
-        r"マルチテストケース",
     ]
+
+    if allow_generic:
+        patterns += [
+            # each test case / for each test case
+            r"\bfor\s+each\s+test\s*case\b",
+            r"\beach\s+test\s*case\b",
+            # Japanese
+            r"マルチテストケース",
+        ]
 
     return any(re.search(pattern, text) for pattern in patterns)
 
@@ -500,6 +510,7 @@ def _split_top_level_testcases(analyzed, *, data: dict[str, Any]):
         and not _has_testcase_text_signal(
             data,
             count_name=count_name,
+            allow_generic=False,
         )
     ):
         return None
