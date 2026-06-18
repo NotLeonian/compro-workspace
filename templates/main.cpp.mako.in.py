@@ -437,6 +437,7 @@ def _has_testcase_text_signal(
     *,
     count_name: str,
     allow_generic: bool = True,
+    allow_bare_cases: bool = True,
 ) -> bool:
     text = _normalize_for_testcase_signal(_constraint_text(data))
     name = _math_var_pattern(count_name)
@@ -456,20 +457,35 @@ def _has_testcase_text_signal(
         + ")"
     )
 
-    patterns = [
+    strong_patterns = [
         # T test cases
-        rf"{name}\s+(?:test\s*)?cases?\b",
+        rf"{name}\s+test\s*cases?\b",
         # T denotes / represents / is the number of test cases
-        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+(?:test\s*)?cases?\b",
+        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+test\s*cases?\b",
         # number of test cases is T
-        rf"\bnumber\s+of\s+(?:test\s*)?cases?\b[^.\n;。]*{name}",
+        rf"\bnumber\s+of\s+test\s*cases?\b[^.\n;。]*{name}",
         # first line contains T ... test cases
-        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\b(?:test\s*)?cases?\b",
+        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\btest\s*cases?\b",
         # input format: case_1 ... case_{count_name}
         rf"\bcase\s*_?\s*1\b[\s\S]{{0,500}}\bcase\s*_?\s*{case_index_endpoint}(?![a-z0-9_])",
         # Japanese
         rf"{name}\s*個\s*の\s*テストケース",
     ]
+
+    bare_case_patterns = [
+        # T cases
+        rf"{name}\s+cases?\b",
+        # T denotes / represents / is the number of cases
+        rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+cases?\b",
+        # number of cases is T
+        rf"\bnumber\s+of\s+cases?\b[^.\n;。]*{name}",
+        # first line contains T ... cases
+        rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\bcases?\b",
+    ]
+
+    patterns = list(strong_patterns)
+    if allow_bare_cases:
+        patterns += bare_case_patterns
 
     if allow_generic:
         patterns += [
@@ -526,6 +542,7 @@ def _split_top_level_testcases(analyzed, *, data: dict[str, Any]):
             data,
             count_name=count_name,
             allow_generic=False,
+            allow_bare_cases=False,
         )
     ):
         return None
