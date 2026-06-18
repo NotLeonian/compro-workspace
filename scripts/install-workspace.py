@@ -1,7 +1,6 @@
 #!/usr/bin/env -S uv run
 
 import argparse
-from dataclasses import dataclass
 import datetime as dt
 import json
 import os
@@ -10,7 +9,7 @@ import shutil
 import stat
 import sys
 import textwrap
-
+from dataclasses import dataclass
 
 RUNTIME_ITEMS = [
     ".vscode",
@@ -24,13 +23,18 @@ RUNTIME_ITEMS = [
     "templates",
 ]
 
+MAKO_MODULE_START = "<%!"
+MAKO_MODULE_END = "\n%>\\"
+MAKO_MODULE_END_WITHOUT_CONTINUATION = "\n%>"
+
 
 def user_config_dir() -> pathlib.Path:
     """
     oj-prepare が使う online-judge-tools の設定ディレクトリを返す。
 
-    template-generator の実装は appdirs.user_config_dir("online-judge-tools")
-    を使っているので、appdirs があればそれに合わせる。
+    template-generator の実装は
+    appdirs.user_config_dir("online-judge-tools") を
+    使っているので、appdirs があればそれに合わせる。
     """
 
     try:
@@ -152,7 +156,7 @@ def write_text(path: pathlib.Path, content: str) -> None:
 
 def write_executable(path: pathlib.Path, content: str) -> None:
     """
-    path のファイルに contest を書き込んだあと、
+    path のファイルに contest を書き込んだ後に
     実行ファイルとしての権限を与える。
     """
 
@@ -160,6 +164,62 @@ def write_executable(path: pathlib.Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
     mode = path.stat().st_mode
     path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+
+def split_first_mako_module_block(
+    text: str,
+    *,
+    path: pathlib.Path,
+) -> tuple[str, str]:
+    """
+    最初の Mako module block（`<%! ... %>`）の中身と
+    それ以降の本文に分ける。
+
+    この関数では最初の `<%! ... %>` だけを扱う。
+    後続の `<% ... %>` block は本文として残す。
+    """
+
+    if not text.startswith(MAKO_MODULE_START):
+        raise SystemExit(f"error: missing first Mako module block: {path}")
+
+    body_start = len(MAKO_MODULE_START)
+    if text.startswith("\r\n", body_start):
+        body_start += 2
+    elif text.startswith("\n", body_start):
+        body_start += 1
+
+    for marker in (MAKO_MODULE_END, MAKO_MODULE_END_WITHOUT_CONTINUATION):
+        body_end = text.find(marker)
+        if body_end != -1:
+            return text[body_start:body_end], text[body_end + len(marker) :]
+
+    raise SystemExit(f"error: missing first Mako module block terminator: {path}")
+
+
+def read_mako_module_code(path: pathlib.Path) -> str:
+    """
+    main.cpp.mako.in.py から
+    最初の `<%! ... %>` に挿入する Python ソースコードを読む。
+
+    main.cpp.mako.in.py は Mako の囲みを含まない
+    通常の Python ソースコードであることを仮定する。
+    """
+
+    if not path.exists():
+        raise SystemExit(f"error: missing template adapter module: {path}")
+
+    return path.read_text(encoding="utf-8").rstrip() + "\n"
+
+
+def build_bridge_template(mako_in_path: pathlib.Path, module_path: pathlib.Path) -> str:
+    """
+    main.cpp.mako.in の最初の module block に Python ソースコードを挿入する。
+    """
+
+    template = mako_in_path.read_text(encoding="utf-8")
+    _placeholder, tail = split_first_mako_module_block(template, path=mako_in_path)
+    module_code = read_mako_module_code(module_path)
+    return f"{MAKO_MODULE_START}\n{module_code}%>\\{tail}"
 
 
 @dataclass(frozen=True)
@@ -203,6 +263,7 @@ def main() -> None:
 
     template_name = "main.cpp"
     mako_in_name = "main.cpp.mako.in"
+    mako_module_name = f"{mako_in_name}.py"
 
     source_root = pathlib.Path(__file__).resolve().parents[1]
     workspace_root = args.workspace_root.expanduser().resolve()
@@ -293,10 +354,11 @@ def main() -> None:
     # adapter 自体は ~/.config に配置するが、C++ テンプレート本体は
     # 問題を解くワークスペースの templates/template.cpp を読む
     mako_in_path = workspace_root / "templates" / mako_in_name
+    mako_module_path = workspace_root / "templates" / mako_module_name
     if not mako_in_path.exists():
         raise SystemExit(f"error: missing template adapter: {mako_in_path}")
 
-    bridge_template = mako_in_path.read_text(encoding="utf-8").replace(
+    bridge_template = build_bridge_template(mako_in_path, mako_module_path).replace(
         "__WORKSPACE_ROOT__",
         workspace_root.as_posix(),
     )
