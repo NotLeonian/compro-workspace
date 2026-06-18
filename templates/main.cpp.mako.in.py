@@ -1,4 +1,3 @@
-<%!
 import ast
 import html as html_lib
 import pathlib
@@ -1574,46 +1573,3 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             "    // failed to generate input receiving code; edit here",
             "    // ::in(t);",
         )
-%>\
-<%
-logger = getLogger(__name__)
-config = data.setdefault("config", {})
-config["rep_macro"] = "rep"
-config["long_long_int"] = "ll"
-config["scanner"] = _scanner
-config.setdefault("indent", "    ")
-
-if not shutil.which("clang-format"):
-    logger.warning("clang-format is not installed.")
-else:
-    if CLANG_FORMAT.exists():
-        hook.register_filter_command(
-            ["clang-format", f"--style=file:{CLANG_FORMAT.as_posix()}"],
-            data=data,
-        )
-    else:
-        hook.register_filter_command(["clang-format", "--style=file"], data=data)
-
-constants, generated_input, testcase_count_reader = _build_generated_parts(data, logger=logger)
-source = BASE_TEMPLATE.read_text(encoding="utf-8")
-
-solve_body_lines = []
-if generated_input:
-    solve_body_lines.append(generated_input)
-solve_body = "\n".join(solve_body_lines)
-solve_replacement = ""
-if constants:
-    solve_replacement += constants + "\n\n"
-solve_replacement += f"void solve() {{\n{solve_body}\n}}"
-
-if "void solve() {}" in source:
-    source = source.replace("void solve() {}", solve_replacement, 1)
-else:
-    logger.warning("the base template does not contain 'void solve() {}'.")
-
-if "    // ::in(t);" in source:
-    source = source.replace("    // ::in(t);", testcase_count_reader, 1)
-else:
-    logger.warning("the base template does not contain '    // ::in(t);'.")
-%>\
-${source}
