@@ -930,7 +930,7 @@ INT_LIMIT = 10_000_000
 
 
 def _fits_small_int_range(lower_bound: int, upper_bound: int) -> bool:
-    return -10_000_000 < lower_bound and upper_bound < 10_000_000
+    return -INT_LIMIT < lower_bound and upper_bound < INT_LIMIT
 
 
 def _select_integral_var_type(decl, *, data: dict[str, Any]):
