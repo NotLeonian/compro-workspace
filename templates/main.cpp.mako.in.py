@@ -2,13 +2,10 @@ import ast
 import html as html_lib
 import pathlib
 import re
-import shutil
 import unicodedata
-from logging import getLogger
 from typing import Any
 
 import onlinejudge_template.generator.cplusplus as cplusplus
-import onlinejudge_template.generator.hook as hook
 from onlinejudge_template.types import (
     Expr,
     ItemNode,
@@ -167,9 +164,10 @@ def _strip_braced_case_subscripts(text: str, *, counter: str) -> str:
             if not rest:
                 return base
 
-            return base + "_" + "_".join(
-                _subscript_suffix_name(subscript)
-                for subscript in rest
+            return (
+                base
+                + "_"
+                + "_".join(_subscript_suffix_name(subscript) for subscript in rest)
             )
 
         return match.group(0)
@@ -275,8 +273,7 @@ def _clone_without_case_index(node, *, counter: str):
     if isinstance(node, SequenceNode):
         return SequenceNode(
             items=[
-                _clone_without_case_index(item, counter=counter)
-                for item in node.items
+                _clone_without_case_index(item, counter=counter) for item in node.items
             ],
         )
 
@@ -293,7 +290,9 @@ def _clone_without_case_index(node, *, counter: str):
 _IDENT_RE = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
 
 
-def _decl_dependencies_from_expr(expr, *, known_names: set[str], counter: str) -> set[VarName]:
+def _decl_dependencies_from_expr(
+    expr, *, known_names: set[str], counter: str
+) -> set[VarName]:
     deps: set[VarName] = set()
 
     for token in _IDENT_RE.findall(_simple_expr(expr)):
@@ -438,20 +437,15 @@ def _has_testcase_text_signal(data: dict[str, Any], *, count_name: str) -> bool:
     patterns = [
         # T test cases
         rf"{name}\s+(?:test\s*)?cases?\b",
-
         # T denotes / represents / is the number of test cases
         rf"{name}[^.\n;。]*\b(?:denotes|represents|is)\b[^.\n;。]*\bnumber\s+of\s+(?:test\s*)?cases?\b",
-
         # number of test cases is T
         rf"\bnumber\s+of\s+(?:test\s*)?cases?\b[^.\n;。]*{name}",
-
         # first line contains T ... test cases
         rf"\bfirst\s+line\b[^.\n;。]*{name}[^.\n;。]*\b(?:test\s*)?cases?\b",
-
         # each test case / for each test case
         r"\bfor\s+each\s+test\s*case\b",
         r"\beach\s+test\s*case\b",
-
         # Japanese
         rf"{name}\s*個\s*の\s*テストケース",
         r"マルチテストケース",
@@ -478,11 +472,7 @@ def _split_top_level_testcases(analyzed, *, data: dict[str, Any]):
         return None
 
     # ignore NewlineNode
-    items = [
-        item
-        for item in input_format.items
-        if not isinstance(item, NewlineNode)
-    ]
+    items = [item for item in input_format.items if not isinstance(item, NewlineNode)]
 
     if len(items) != 2:
         return None
@@ -527,9 +517,7 @@ def _data_with_input(
     config = dict(data.get("config", {}))
     config["rep_macro"] = "rep"
     config["long_long_int"] = "ll"
-    config["scanner"] = lambda exprs: [
-        f"::in({', '.join(expr for expr, _ in exprs)});"
-    ]
+    config["scanner"] = lambda exprs: [f"::in({', '.join(expr for expr, _ in exprs)});"]
 
     new_data["config"] = config
     new_data["analyzed"] = data["analyzed"]._replace(
@@ -1210,7 +1198,6 @@ _TEMPLATE_HELPER_NAMES = {
     "in_z",
     "input",
     "input_z",
-
     # output/debug helpers
     "out",
     "out_and_flush",
@@ -1223,7 +1210,6 @@ _TEMPLATE_HELPER_NAMES = {
     "change_seps",
     "sep",
     "current_sep",
-
     # common utilities
     "yes",
     "no",
@@ -1243,7 +1229,6 @@ _TEMPLATE_HELPER_NAMES = {
     "ceil_div",
     "make_vector",
     "make_array",
-
     # aliases / constants / macros that users are likely to use
     "ll",
     "uint",
@@ -1264,7 +1249,6 @@ _TEMPLATE_HELPER_NAMES = {
     "dir",
     "dir_2",
     "dir_8",
-
     # namespaces in the template
     "atcoder",
     "suisen",
@@ -1345,11 +1329,7 @@ def _make_lowercase_rename_map(
     original_names = set(names)
     loop_counters = _collect_loop_counter_names(input_format)
 
-    reserved_names = (
-        _RESERVED_GENERATED_NAMES
-        | _constant_names(data)
-        | loop_counters
-    )
+    reserved_names = _RESERVED_GENERATED_NAMES | _constant_names(data) | loop_counters
 
     grouped: dict[str, list[str]] = {}
 
@@ -1385,7 +1365,9 @@ def _make_lowercase_rename_map(
 
 def _rename_expr(expr, *, rename_map: dict[str, str]):
     text = _simple_expr(expr)
-    for old, new in sorted(rename_map.items(), key=lambda item: len(item[0]), reverse=True):
+    for old, new in sorted(
+        rename_map.items(), key=lambda item: len(item[0]), reverse=True
+    ):
         escaped = re.escape(old)
         text = re.sub(
             rf"(?<![A-Za-z0-9_]){escaped}(?![A-Za-z0-9_])",
@@ -1400,8 +1382,7 @@ def _rename_input_format(node, *, rename_map: dict[str, str]):
         return ItemNode(
             name=rename_map.get(str(node.name), str(node.name)),
             indices=[
-                _rename_expr(index, rename_map=rename_map)
-                for index in node.indices
+                _rename_expr(index, rename_map=rename_map) for index in node.indices
             ],
         )
 
@@ -1411,8 +1392,7 @@ def _rename_input_format(node, *, rename_map: dict[str, str]):
     if isinstance(node, SequenceNode):
         return SequenceNode(
             items=[
-                _rename_input_format(item, rename_map=rename_map)
-                for item in node.items
+                _rename_input_format(item, rename_map=rename_map) for item in node.items
             ],
         )
 
@@ -1434,17 +1414,10 @@ def _rename_input_variables(input_variables, *, rename_map: dict[str, str]):
 
         new_decl = decl._replace(
             name=new_name,
-            dims=[
-                _rename_expr(dim, rename_map=rename_map)
-                for dim in decl.dims
-            ],
-            bases=[
-                _rename_expr(base, rename_map=rename_map)
-                for base in decl.bases
-            ],
+            dims=[_rename_expr(dim, rename_map=rename_map) for dim in decl.dims],
+            bases=[_rename_expr(base, rename_map=rename_map) for base in decl.bases],
             depending={
-                VarName(rename_map.get(str(dep), str(dep)))
-                for dep in decl.depending
+                VarName(rename_map.get(str(dep), str(dep))) for dep in decl.depending
             },
         )
 
@@ -1453,7 +1426,9 @@ def _rename_input_variables(input_variables, *, rename_map: dict[str, str]):
     return result
 
 
-def _normalize_input_variable_names(input_format, input_variables, *, data: dict[str, Any]):
+def _normalize_input_variable_names(
+    input_format, input_variables, *, data: dict[str, Any]
+):
     rename_map = _make_lowercase_rename_map(
         input_format,
         input_variables,
@@ -1503,7 +1478,9 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             ):
                 return (
                     constants,
-                    _read_input_fallback("detected unsupported input format; edit here"),
+                    _read_input_fallback(
+                        "detected unsupported input format; edit here"
+                    ),
                     "    // ::in(t);",
                 )
 
@@ -1544,7 +1521,9 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
         ):
             return (
                 constants,
-                _read_input_fallback("detected unsupported per-case input format; edit here"),
+                _read_input_fallback(
+                    "detected unsupported per-case input format; edit here"
+                ),
                 "    ::in(t);",
             )
 
