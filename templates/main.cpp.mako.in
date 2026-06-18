@@ -2,6 +2,12 @@
 # This block is populated by scripts/install-workspace.py from main.cpp.mako.in.py.
 %>\
 <%
+import pathlib
+import shutil
+from logging import getLogger
+
+import onlinejudge_template.generator.hook as hook
+
 logger = getLogger(__name__)
 config = data.setdefault("config", {})
 config["rep_macro"] = "rep"
