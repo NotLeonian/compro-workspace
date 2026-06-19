@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+	cat >&2 <<'EOF'
+usage:
+  compro-build-debug [--force] WORKSPACE_ROOT SOURCE_FILE
+
+Build SOURCE_FILE into SOURCE_FILE's directory/debug.out.
+
+Without --force, this rebuilds when:
+  - debug.out does not exist
+  - debug.out is not executable
+  - SOURCE_FILE is newer than debug.out
+  - debug.out was not recorded as built from this SOURCE_FILE
+  - SOURCE_FILE content hash differs from the recorded hash
+EOF
+}
+
+force=false
+
+case "${1:-}" in
+	--force)
+		force=true
+		shift
+		;;
+	-h|--help)
+		usage
+		exit 0
+		;;
+esac
+
+if [[ $# -ne 2 ]]; then
+	usage
+	exit 2
+fi
+
+workspace_root="$1"
+source_arg="$2"
+
+workspace_root="$(cd "$workspace_root" && pwd)"
+source_dir="$(cd "$(dirname "$source_arg")" && pwd)"
+source="$source_dir/$(basename "$source_arg")"
+
+if [[ ! -f "$source" ]]; then
+	printf 'compro-workspace: error: source file does not exist: %s\n' "$source" >&2
+	exit 1
+fi
+
+source_name="$(basename "$source")"
+source_base="${source_name%.*}"
+
+bundle="$source_dir/$source_base.bundle.cpp"
+out="$source_dir/debug.out"
+
+stamp_source="$source_dir/.debug.out.source"
+stamp_hash="$source_dir/.debug.out.source.sha256"
+
+hash_file() {
+	local path="$1"
+
+	if command -v sha256sum >/dev/null 2>&1; then
+		sha256sum "$path" | awk '{print $1}'
+	elif command -v shasum >/dev/null 2>&1; then
+		shasum -a 256 "$path" | awk '{print $1}'
+	else
+		printf ''
+	fi
+}
+
+# ローカルのヘッダの更新を部分的に検知する
+# source_dir 直下のヘッダのみを確認する
+newer_local_header_exists() {
+	local dir="$1"
+	local out="$2"
+
+	local path
+
+	for path in "$dir"/*.h "$dir"/*.hpp "$dir"/*.hh "$dir"/*.hxx; do
+		[[ -e "$path" ]] || continue
+
+		if [[ "$path" -nt "$out" ]]; then
+			printf '%s\n' "$path"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+current_hash="$(hash_file "$source")"
+
+needs_build=false
+reason=''
+
+if "$force"; then
+	needs_build=true
+	reason='--force was specified'
+elif [[ ! -e "$out" ]]; then
+	needs_build=true
+	reason='debug.out does not exist'
+elif [[ ! -x "$out" ]]; then
+	needs_build=true
+	reason='debug.out is not executable'
+elif [[ "$source" -nt "$out" ]]; then
+	needs_build=true
+	reason='source file is newer than debug.out'
+elif newer_header="$(newer_local_header_exists "$source_dir" "$out")"; then
+	needs_build=true
+	reason="local header is newer than debug.out: $newer_header"
+elif [[ ! -f "$stamp_source" ]]; then
+	needs_build=true
+	reason='missing source stamp, possibly invalidated by workspace reinstall'
+elif [[ "$(cat "$stamp_source")" != "$source" ]]; then
+	needs_build=true
+	reason='debug.out was built from another source file'
+elif [[ -n "$current_hash" ]] && { [[ ! -f "$stamp_hash" ]] || [[ "$(cat "$stamp_hash")" != "$current_hash" ]]; }; then
+	needs_build=true
+	reason='source file content hash changed'
+fi
+
+if ! "$needs_build"; then
+	printf 'compro-workspace: debug.out is up to date: %s\n' "$out" >&2
+	exit 0
+fi
+
+printf 'compro-workspace: building debug.out: %s\n' "$reason" >&2
+printf '  source = %s\n' "$source" >&2
+printf '  output = %s\n' "$out" >&2
+
+cd "$workspace_root"
+
+clang-format -i -style=file "$source"
+
+CXX="$workspace_root/.vscode/g++-for-oj-bundle" \
+	uv run oj-bundle \
+		-I "$workspace_root/libraries/ei1333" \
+		-I "$workspace_root/libraries/nyaan" \
+		-I "$workspace_root/libraries/suisen" \
+		-I "$workspace_root/libraries/niche-library" \
+		"$source" > "$bundle"
+
+g++ \
+	-o "$out" \
+	-g \
+	-ftrapv \
+	-fsanitize=undefined \
+	-fno-sanitize-recover \
+	-std=gnu++23 \
+	-I "$workspace_root/libraries/ac-library" \
+	-I "$workspace_root/libraries/precompile" \
+	"$bundle"
+
+sed -i '/^#line/d' "$bundle"
+clang-format -i -style=file "$bundle"
+
+post_hash="$(hash_file "$source")"
+
+printf '%s\n' "$source" > "$stamp_source"
+
+if [[ -n "$post_hash" ]]; then
+	printf '%s\n' "$post_hash" > "$stamp_hash"
+else
+	rm -f "$stamp_hash"
+fi

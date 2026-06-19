@@ -154,6 +154,15 @@ def write_text(path: pathlib.Path, content: str) -> None:
     print(f"wrote: {path}", file=sys.stderr)
 
 
+def make_executable(path: pathlib.Path) -> None:
+    """
+    path のファイルに実行権限を与える。
+    """
+
+    mode = path.stat().st_mode
+    path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+
 def write_executable(path: pathlib.Path, content: str) -> None:
     """
     path のファイルに contest を書き込んだ後に
@@ -162,8 +171,7 @@ def write_executable(path: pathlib.Path, content: str) -> None:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
-    mode = path.stat().st_mode
-    path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    make_executable(path)
 
 
 def split_first_mako_module_block(
@@ -220,6 +228,48 @@ def build_bridge_template(mako_in_path: pathlib.Path, module_path: pathlib.Path)
     _placeholder, tail = split_first_mako_module_block(template, path=mako_in_path)
     module_code = read_mako_module_code(module_path)
     return f"{MAKO_MODULE_START}\n{module_code}%>\\{tail}"
+
+
+DEBUG_BUILD_STAMP_NAMES = [
+    ".debug.out.source",
+    ".debug.out.source.sha256",
+]
+
+
+def invalidate_debug_build_stamps(problems_root: pathlib.Path) -> None:
+    """
+    再インストール後の最初のデバッグで
+    debug.out を再生成させるため、
+    build-debug が生成した stamp を削除する。
+
+    debug.out 自体は削除しない。
+    """
+
+    if not problems_root.exists():
+        return
+
+    removed = 0
+
+    for stamp_name in DEBUG_BUILD_STAMP_NAMES:
+        for path in problems_root.rglob(stamp_name):
+            if not path.is_file() and not path.is_symlink():
+                continue
+
+            try:
+                path.unlink()
+            except OSError as e:
+                raise SystemExit(
+                    f"error: failed to remove debug build stamp: {path}: {e}"
+                ) from e
+
+            removed += 1
+            print(f"removed debug build stamp: {path}", file=sys.stderr)
+
+    if removed:
+        print(
+            f"invalidated debug build stamps: {removed} file(s)",
+            file=sys.stderr,
+        )
 
 
 @dataclass(frozen=True)
@@ -302,8 +352,19 @@ def main() -> None:
     for name in RUNTIME_ITEMS:
         copy_item(source_root / name, workspace_root / name)
 
-    # 問題を解くワークスペースに problems サブディレクトリを作成
-    (workspace_root / "problems").mkdir(parents=True, exist_ok=True)
+    # コピーされたスクリプトへの実行権限の付与
+    for relpath in [
+        ".vscode/g++-for-oj-bundle",
+        ".vscode/compro-shell",
+        ".vscode/build-debug",
+    ]:
+        make_executable(workspace_root / relpath)
+
+    # 問題を解くワークスペースに problems サブディレクトリを作成し、
+    # 古い stamp を削除する
+    problems_root = workspace_root / "problems"
+    problems_root.mkdir(parents=True, exist_ok=True)
+    invalidate_debug_build_stamps(problems_root)
 
     # ojp（oj-prepare のラッパー）の作成
     write_executable(
