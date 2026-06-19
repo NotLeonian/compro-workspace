@@ -68,6 +68,26 @@ hash_file() {
 	fi
 }
 
+# ローカルのヘッダの更新を部分的に検知する
+# source_dir 直下のヘッダのみを確認する
+newer_local_header_exists() {
+	local dir="$1"
+	local out="$2"
+
+	local path
+
+	for path in "$dir"/*.h "$dir"/*.hpp "$dir"/*.hh "$dir"/*.hxx; do
+		[[ -e "$path" ]] || continue
+
+		if [[ "$path" -nt "$out" ]]; then
+			printf '%s\n' "$path"
+			return 0
+		fi
+	done
+
+	return 1
+}
+
 current_hash="$(hash_file "$source")"
 
 needs_build=false
@@ -85,9 +105,12 @@ elif [[ ! -x "$out" ]]; then
 elif [[ "$source" -nt "$out" ]]; then
 	needs_build=true
 	reason='source file is newer than debug.out'
+elif newer_header="$(newer_local_header_exists "$source_dir" "$out")"; then
+	needs_build=true
+	reason="local header is newer than debug.out: $newer_header"
 elif [[ ! -f "$stamp_source" ]]; then
 	needs_build=true
-	reason='missing source stamp'
+	reason='missing source stamp, possibly invalidated by workspace reinstall'
 elif [[ "$(cat "$stamp_source")" != "$source" ]]; then
 	needs_build=true
 	reason='debug.out was built from another source file'

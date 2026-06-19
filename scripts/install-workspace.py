@@ -230,6 +230,48 @@ def build_bridge_template(mako_in_path: pathlib.Path, module_path: pathlib.Path)
     return f"{MAKO_MODULE_START}\n{module_code}%>\\{tail}"
 
 
+DEBUG_BUILD_STAMP_NAMES = [
+    ".debug.out.source",
+    ".debug.out.source.sha256",
+]
+
+
+def invalidate_debug_build_stamps(problems_root: pathlib.Path) -> None:
+    """
+    再インストール後の最初のデバッグで
+    debug.out を再生成させるため、
+    build-debug が生成した stamp を削除する。
+
+    debug.out 自体は削除しない。
+    """
+
+    if not problems_root.exists():
+        return
+
+    removed = 0
+
+    for stamp_name in DEBUG_BUILD_STAMP_NAMES:
+        for path in problems_root.rglob(stamp_name):
+            if not path.is_file() and not path.is_symlink():
+                continue
+
+            try:
+                path.unlink()
+            except OSError as e:
+                raise SystemExit(
+                    f"error: failed to remove debug build stamp: {path}: {e}"
+                ) from e
+
+            removed += 1
+            print(f"removed debug build stamp: {path}", file=sys.stderr)
+
+    if removed:
+        print(
+            f"invalidated debug build stamps: {removed} file(s)",
+            file=sys.stderr,
+        )
+
+
 @dataclass(frozen=True)
 class CommandLineArgs:
     workspace_root: pathlib.Path
@@ -318,8 +360,11 @@ def main() -> None:
     ]:
         make_executable(workspace_root / relpath)
 
-    # 問題を解くワークスペースに problems サブディレクトリを作成
-    (workspace_root / "problems").mkdir(parents=True, exist_ok=True)
+    # 問題を解くワークスペースに problems サブディレクトリを作成し、
+    # 古い stamp を削除する
+    problems_root = workspace_root / "problems"
+    problems_root.mkdir(parents=True, exist_ok=True)
+    invalidate_debug_build_stamps(problems_root)
 
     # ojp（oj-prepare のラッパー）の作成
     write_executable(
