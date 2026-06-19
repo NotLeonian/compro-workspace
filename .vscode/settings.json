@@ -7,22 +7,24 @@
 	],
 	"terminal.integrated.profiles.linux": {
 		"bash": {
-			"path": "${workspaceFolder}/.vscode/compro-shell",
+			"path": "/bin/bash",
+			"args": ["--rcfile", "${workspaceFolder}/.vscode/compro-bashrc", "-i"],
 			"overrideName": true
 		}
 	},
 	"terminal.integrated.defaultProfile.linux": "bash",
 	"terminal.integrated.automationProfile.linux": {
-		"path": "${workspaceFolder}/.vscode/compro-shell"
+		"path": "/bin/bash"
 	},
 	"terminal.integrated.profiles.osx": {
 		"bash": {
-			"path": "${workspaceFolder}/.vscode/compro-shell",
+			"path": "/bin/bash",
+			"args": ["--rcfile", "${workspaceFolder}/.vscode/compro-bashrc", "-i"],
 			"overrideName": true
 		}
 	},
 	"terminal.integrated.defaultProfile.osx": "bash",
 	"terminal.integrated.automationProfile.osx": {
-		"path": "${workspaceFolder}/.vscode/compro-shell"
+		"path": "/bin/bash"
 	}
 }

@@ -1,0 +1,7 @@
+if [[ -r "$HOME/.bashrc" ]]; then
+	source "$HOME/.bashrc"
+fi
+
+_compro_vscode_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$_compro_vscode_dir/compro-stack-limit.sh"
+unset _compro_vscode_dir

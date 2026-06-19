@@ -6,9 +6,8 @@
 			"type": "lldb",
 			"request": "launch",
 			"preLaunchTask": "ensure debug.out",
-			"program": "/usr/bin/env",
+			"program": "/bin/bash",
 			"args": [
-				"bash",
 				"${workspaceFolder}/.vscode/compro-shell",
 				"-c",
 				"exec \"$@\"",
