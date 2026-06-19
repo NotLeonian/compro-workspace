@@ -5,10 +5,20 @@
 			"name": "lldb debug",
 			"type": "lldb",
 			"request": "launch",
-			"program": "${fileDirname}/debug.out",
-			"args": [],
+			"preLaunchTask": "ensure debug.out",
+			"program": "/usr/bin/env",
+			"args": [
+				"bash",
+				"${workspaceFolder}/.vscode/compro-shell",
+				"-c",
+				"exec \"$@\"",
+				"compro-lldb",
+				"${fileDirname}/debug.out"
+			],
 			"cwd": "${workspaceFolder}",
-			"stdio": ["${workspaceFolder}/.vscode/input.txt", null, null]
+			"terminal": "integrated",
+			"stdio": ["${workspaceFolder}/.vscode/input.txt", null, null],
+			"preRunCommands": ["settings set target.process.stop-on-exec false"]
 		}
 	]
 }

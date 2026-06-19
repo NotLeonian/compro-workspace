@@ -4,5 +4,25 @@
 		"--function-arg-placeholders=false",
 		"--clang-tidy=false",
 		"--completion-style=bundled"
-	]
+	],
+	"terminal.integrated.profiles.linux": {
+		"bash": {
+			"path": "${workspaceFolder}/.vscode/compro-shell",
+			"overrideName": true
+		}
+	},
+	"terminal.integrated.defaultProfile.linux": "bash",
+	"terminal.integrated.automationProfile.linux": {
+		"path": "${workspaceFolder}/.vscode/compro-shell"
+	},
+	"terminal.integrated.profiles.osx": {
+		"bash": {
+			"path": "${workspaceFolder}/.vscode/compro-shell",
+			"overrideName": true
+		}
+	},
+	"terminal.integrated.defaultProfile.osx": "bash",
+	"terminal.integrated.automationProfile.osx": {
+		"path": "${workspaceFolder}/.vscode/compro-shell"
+	}
 }
