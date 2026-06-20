@@ -32,7 +32,7 @@ from utilities import (
 )
 
 WORKSPACE_ROOT = pathlib.Path(r"__WORKSPACE_ROOT__")
-BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "template.cpp"
+BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "main.cpp"
 CLANG_FORMAT = WORKSPACE_ROOT / ".clang-format"
 
 TEMPLATES_DIR = WORKSPACE_ROOT / "templates"
