@@ -15,8 +15,8 @@ if TYPE_CHECKING:
     SPECIALS: list[dict[str, Any]] = []
 
 RNG = random.Random()
-VALUES = {}
-SPECIAL_CACHE = {}
+VALUES: dict[tuple[str, tuple[Any, ...]], Any] = {}
+SPECIAL_CACHE: dict[tuple[int, str, tuple[Any, ...]], dict[str, Any]] = {}
 
 _ALLOWED_NAMES = {
     "abs": abs,
