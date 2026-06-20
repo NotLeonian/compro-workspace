@@ -613,6 +613,7 @@ def rand_product_sequence_range(n, min_product, max_product, lo, hi):
             RNG.shuffle(xs)
             return xs
 
+    # Note for template and runtime maintainers:
     # Deterministic fallback: start from all lo and greedily increase values.
     xs = [lo] * n
     product = feasible_min
@@ -854,6 +855,7 @@ def _prepare_expr(expr, local):
 
     expr = _BRACED_INDEX_RE.sub(replace_braced, expr)
 
+    # Note for template and runtime maintainers:
     # We only rewrite bases that are known arrays and counters currently in scope,
     # which keeps ordinary scalar names intact.
     for base in sorted(ARRAY_NAMES, key=len, reverse=True):
@@ -1026,6 +1028,7 @@ def _choose_sum_total(spec, prefix, local):
     if target_name and hasv(target_name, prefix):
         return getv(target_name, prefix)
 
+    # Note for template and runtime maintainers:
     # `target: "S", target_name: "S"` means S itself should be generated
     # consistently with the array, so do not evaluate S before it exists.
     if exact_expr is not None and not (
