@@ -1,0 +1,10 @@
+<%!
+# This block is populated by scripts/install-workspace.py from gen.py.mako.in.py.
+%>\
+<%
+from logging import getLogger
+
+logger = getLogger(__name__)
+source = _build_gen_py(data, logger=logger)
+%>\
+${source}

@@ -311,9 +311,10 @@ def main() -> None:
 
     args = CommandLineArgs(**vars(parser.parse_args()))
 
-    template_name = "main.cpp"
-    mako_in_name = "main.cpp.mako.in"
-    mako_module_name = f"{mako_in_name}.py"
+    template_specs = {
+        "main.cpp": ("main.cpp.mako.in", "main.cpp.mako.in.py"),
+        "gen.py": ("gen.py.mako.in", "gen.py.mako.in.py"),
+    }
 
     source_root = pathlib.Path(__file__).resolve().parents[1]
     workspace_root = args.workspace_root.expanduser().resolve()
@@ -387,10 +388,14 @@ def main() -> None:
     template_dir = config_dir / "template"
 
     prepare_config_path = config_dir / "prepare.config.toml"
-    bridge_template_path = template_dir / template_name
+    bridge_template_paths = {
+        template_name: template_dir / template_name
+        for template_name in template_specs.keys()
+    }
 
     backup_file(prepare_config_path, no_backup=args.no_backup)
-    backup_file(bridge_template_path, no_backup=args.no_backup)
+    for bridge_template_path in bridge_template_paths.values():
+        backup_file(bridge_template_path, no_backup=args.no_backup)
 
     problem_directory = (
         workspace_root / "problems"
@@ -403,27 +408,29 @@ def main() -> None:
         problem_directory = {toml_string(problem_directory)}
 
         [templates]
-        "main.cpp" = {toml_string(template_name)}
-        "naive.cpp" = {toml_string(template_name)}
+        "main.cpp" = {toml_string("main.cpp")}
+        "naive.cpp" = {toml_string("main.cpp")}
+        "gen.py" = "gen.py"
         """
     )
 
     write_text(prepare_config_path, prepare_config)
 
     # 5. oj-prepare が使用する adapter を生成
-    #
-    # adapter 自体は ~/.config に配置するが、C++ テンプレート本体は
-    # 問題を解くワークスペースの templates/template.cpp を読む
-    mako_in_path = workspace_root / "templates" / mako_in_name
-    mako_module_path = workspace_root / "templates" / mako_module_name
-    if not mako_in_path.exists():
-        raise SystemExit(f"error: missing template adapter: {mako_in_path}")
 
-    bridge_template = build_bridge_template(mako_in_path, mako_module_path).replace(
-        "__WORKSPACE_ROOT__",
-        workspace_root.as_posix(),
-    )
-    write_text(bridge_template_path, bridge_template)
+    # adapter 自体は ~/.config に配置するが、テンプレート本体は
+    # 問題を解くワークスペースの templates/ 配下のファイルを読む
+    for template_name, (mako_in_name, mako_module_name) in template_specs.items():
+        mako_in_path = workspace_root / "templates" / mako_in_name
+        mako_module_path = workspace_root / "templates" / mako_module_name
+        if not mako_in_path.exists():
+            raise SystemExit(f"error: missing template adapter: {mako_in_path}")
+
+        bridge_template = build_bridge_template(mako_in_path, mako_module_path).replace(
+            "__WORKSPACE_ROOT__",
+            workspace_root.as_posix(),
+        )
+        write_text(bridge_template_paths[template_name], bridge_template)
 
     print("", file=sys.stderr)
     print("installed runtime workspace:", file=sys.stderr)
@@ -435,7 +442,8 @@ def main() -> None:
     print("", file=sys.stderr)
     print("installed oj-prepare configuration:", file=sys.stderr)
     print(f"  prepare.config.toml = {prepare_config_path}", file=sys.stderr)
-    print(f"  template adapter    = {bridge_template_path}", file=sys.stderr)
+    for template_name, bridge_template_path in bridge_template_paths.items():
+        print(f"  template adapter    = {bridge_template_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
