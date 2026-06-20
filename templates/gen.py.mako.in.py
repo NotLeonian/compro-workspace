@@ -1,3 +1,4 @@
+import importlib
 import pathlib
 import re
 import sys
@@ -6,45 +7,26 @@ import unicodedata
 from typing import Any
 
 from onlinejudge_template.types import ItemNode, LoopNode, NewlineNode, SequenceNode
-from utilities import (
-    bounds_of_name as _bounds_of_name,
-)
-from utilities import (
-    collect_array_names_from_format as _collect_array_names_from_format,
-)
-from utilities import (
-    collect_dimension_mentions as _collect_dimension_mentions,
-)
-from utilities import (
-    collect_item_names as _collect_item_names,
-)
-from utilities import (
-    const_prefix as _const_prefix,
-)
-from utilities import (
-    constraint_text as _constraint_text,
-)
-from utilities import (
-    default_bounds as _default_bounds,
-)
-from utilities import (
-    format_node_to_data as _format_node_to_data,
-)
-from utilities import (
-    format_python_literal as _format_python_literal,
-)
-from utilities import (
-    simple_expr as _simple_expr,
-)
-from utilities import (
-    value_kind as _value_kind,
-)
 
 WORKSPACE_ROOT = pathlib.Path(r"__WORKSPACE_ROOT__")
 
 TEMPLATES_DIR = WORKSPACE_ROOT / "templates"
-if str(TEMPLATES_DIR) not in sys.path:
-    sys.path.insert(0, str(TEMPLATES_DIR))
+_TEMPLATES_DIR_STR = str(TEMPLATES_DIR)
+if _TEMPLATES_DIR_STR not in sys.path:
+    sys.path.insert(0, _TEMPLATES_DIR_STR)
+
+_utilities: Any = importlib.import_module("utilities")
+_bounds_of_name = _utilities.bounds_of_name
+_collect_array_names_from_format = _utilities.collect_array_names_from_format
+_collect_dimension_mentions = _utilities.collect_dimension_mentions
+_collect_item_names = _utilities.collect_item_names
+_const_prefix = _utilities.const_prefix
+_constraint_text = _utilities.constraint_text
+_default_bounds = _utilities.default_bounds
+_format_node_to_data = _utilities.format_node_to_data
+_format_python_literal = _utilities.format_python_literal
+_simple_expr = _utilities.simple_expr
+_value_kind = _utilities.value_kind
 
 
 def _build_constants_and_tables(input_variables, input_format, *, data: dict[str, Any]):

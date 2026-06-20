@@ -1,4 +1,5 @@
 import ast
+import importlib
 import pathlib
 import re
 import sys
@@ -15,29 +16,23 @@ from onlinejudge_template.types import (
     VarName,
     VarType,
 )
-from utilities import (
-    bounds_of_decl as _bounds_of_decl,
-)
-from utilities import (
-    constraint_text as _constraint_text,
-)
-from utilities import (
-    math_var_pattern as _math_var_pattern,
-)
-from utilities import (
-    normalize_for_testcase_signal as _normalize_for_testcase_signal,
-)
-from utilities import (
-    simple_expr as _simple_expr,
-)
 
 WORKSPACE_ROOT = pathlib.Path(r"__WORKSPACE_ROOT__")
-BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "main.cpp"
-CLANG_FORMAT = WORKSPACE_ROOT / ".clang-format"
 
 TEMPLATES_DIR = WORKSPACE_ROOT / "templates"
-if str(TEMPLATES_DIR) not in sys.path:
-    sys.path.insert(0, str(TEMPLATES_DIR))
+_TEMPLATES_DIR_STR = str(TEMPLATES_DIR)
+if _TEMPLATES_DIR_STR not in sys.path:
+    sys.path.insert(0, _TEMPLATES_DIR_STR)
+
+_utilities: Any = importlib.import_module("utilities")
+_bounds_of_decl = _utilities.bounds_of_decl
+_constraint_text = _utilities.constraint_text
+_math_var_pattern = _utilities.math_var_pattern
+_normalize_for_testcase_signal = _utilities.normalize_for_testcase_signal
+_simple_expr = _utilities.simple_expr
+
+BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "main.cpp"
+CLANG_FORMAT = WORKSPACE_ROOT / ".clang-format"
 
 _CASE_COUNT_NAMES = {
     "t",
