@@ -6,7 +6,6 @@
 		"--completion-style=bundled"
 	],
 	"python-envs.workspaceSearchPaths": ["./.venv"],
-	"python.defaultInterpreterPath": "${workspaceFolder}/.venv",
 	"terminal.integrated.profiles.linux": {
 		"bash": {
 			"path": "/bin/bash",
