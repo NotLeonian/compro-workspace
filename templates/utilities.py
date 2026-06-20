@@ -293,6 +293,72 @@ _ABS_FUNC_RE = re.compile(
 )
 
 
+def _previous_non_space(text: str, pos: int) -> str | None:
+    i = pos - 1
+    while i >= 0 and text[i].isspace():
+        i -= 1
+    return text[i] if i >= 0 else None
+
+
+def _next_non_space(text: str, pos: int) -> str | None:
+    i = pos
+    while i < len(text) and text[i].isspace():
+        i += 1
+    return text[i] if i < len(text) else None
+
+
+def _is_ascii_identifier_char(ch: str) -> bool:
+    return ch == "_" or "0" <= ch <= "9" or "A" <= ch <= "Z" or "a" <= ch <= "z"
+
+
+_NUMERIC_BOUND_FORBIDDEN_LEFT_CHARS = ")]}+-*/^"
+_NUMERIC_BOUND_FORBIDDEN_RIGHT_CHARS = "([{"
+
+
+def _numeric_bound_group_is_standalone(
+    line: str,
+    match: re.Match[str],
+    group_name: str,
+) -> bool:
+    """
+    Return False when a numeric regex group is
+    only a suffix/prefix of a larger symbolic expression.
+    """
+
+    start, end = match.span(group_name)
+    if start < 0 or end < 0:
+        return False
+
+    previous = _previous_non_space(line, start)
+    if previous is not None:
+        if (
+            _is_ascii_identifier_char(previous)
+            or previous in _NUMERIC_BOUND_FORBIDDEN_LEFT_CHARS
+        ):
+            return False
+
+    following = _next_non_space(line, end)
+    if following is not None:
+        if (
+            _is_ascii_identifier_char(following)
+            or following in _NUMERIC_BOUND_FORBIDDEN_RIGHT_CHARS
+        ):
+            return False
+
+    return True
+
+
+def _numeric_bound_groups_are_standalone(
+    line: str,
+    match: re.Match[str],
+    *group_names: str,
+) -> bool:
+    return all(
+        _numeric_bound_group_is_standalone(line, match, group_name)
+        for group_name in group_names
+    )
+
+
 def split_var_list(s: str) -> list[str]:
     result: list[str] = []
     depth = 0
@@ -376,6 +442,9 @@ def collect_bounds(data: dict[str, Any]) -> BoundsMap:
         # abs(X_i) <= 10^9
         for pattern in (_ABS_BAR_RE, _ABS_FUNC_RE):
             for m in pattern.finditer(line):
+                if not _numeric_bound_groups_are_standalone(line, m, "upper"):
+                    continue
+
                 upper = inclusive_upper_bound(
                     m.group("upper"),
                     strict=(m.group("op") == "<"),
@@ -388,6 +457,9 @@ def collect_bounds(data: dict[str, Any]) -> BoundsMap:
         # 1 <= N <= 2 * 10^5
         # -10^18 <= X <= 10
         for m in _RANGE_RE.finditer(line):
+            if not _numeric_bound_groups_are_standalone(line, m, "lower", "upper"):
+                continue
+
             lower = inclusive_lower_bound(
                 m.group("lower"),
                 strict=(m.group("lower_op") == "<"),
@@ -402,6 +474,9 @@ def collect_bounds(data: dict[str, Any]) -> BoundsMap:
         # X <= 10^9
         # A_i < 10^7
         for m in _RIGHT_UPPER_RE.finditer(line):
+            if not _numeric_bound_groups_are_standalone(line, m, "upper"):
+                continue
+
             upper = inclusive_upper_bound(
                 m.group("upper"),
                 strict=(m.group("op") == "<"),
@@ -411,6 +486,9 @@ def collect_bounds(data: dict[str, Any]) -> BoundsMap:
         # X >= -10^9
         # X > -10^9
         for m in _RIGHT_LOWER_RE.finditer(line):
+            if not _numeric_bound_groups_are_standalone(line, m, "lower"):
+                continue
+
             lower = inclusive_lower_bound(
                 m.group("lower"),
                 strict=(m.group("op") == ">"),
@@ -420,6 +498,9 @@ def collect_bounds(data: dict[str, Any]) -> BoundsMap:
         # 10^9 >= X
         # 10^7 > A_i
         for m in _LEFT_UPPER_RE.finditer(line):
+            if not _numeric_bound_groups_are_standalone(line, m, "upper"):
+                continue
+
             upper = inclusive_upper_bound(
                 m.group("upper"),
                 strict=(m.group("op") == ">"),
@@ -429,6 +510,9 @@ def collect_bounds(data: dict[str, Any]) -> BoundsMap:
         # -10^9 <= X
         # -10^9 < X
         for m in _LEFT_LOWER_RE.finditer(line):
+            if not _numeric_bound_groups_are_standalone(line, m, "lower"):
+                continue
+
             lower = inclusive_lower_bound(
                 m.group("lower"),
                 strict=(m.group("op") == "<"),
