@@ -471,7 +471,8 @@ template <class T> void sort_and_dedup(T &v) {
 
 constexpr string_view yes() { return "Yes"; }
 constexpr string_view no() { return "No"; }
-constexpr string_view yn(bool cond) {
+constexpr string_view yn(bool cond, string_view yes_str = yes(),
+                         string_view no_str = no()) {
     if (cond) {
         return yes();
     } else {
