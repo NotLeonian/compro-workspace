@@ -474,9 +474,9 @@ constexpr string_view no() { return "No"; }
 constexpr string_view yn(bool cond, string_view yes_str = yes(),
                          string_view no_str = no()) {
     if (cond) {
-        return yes();
+        return yes_str;
     } else {
-        return no();
+        return no_str;
     }
 }
 template <class T>
