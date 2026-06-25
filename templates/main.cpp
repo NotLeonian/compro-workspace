@@ -480,11 +480,11 @@ constexpr string_view yn(bool cond, string_view yes_str = yes(),
     }
 }
 template <class T>
-constexpr T yn(bool cond, const T &yes_str, const T &no_str) {
+constexpr T yn(bool cond, const T &yes_val, const T &no_val) {
     if (cond) {
-        return yes_str;
+        return yes_val;
     } else {
-        return no_str;
+        return no_val;
     }
 }
 
