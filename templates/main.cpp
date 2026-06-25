@@ -478,7 +478,7 @@ constexpr string_view yn(bool cond) {
         return no();
     }
 }
-constexpr string yn(bool cond, const string &yes_str, const string &no_str) {
+string yn(bool cond, const string &yes_str, const string &no_str) {
     if (cond) {
         return yes_str;
     } else {
