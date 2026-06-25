@@ -479,26 +479,21 @@ constexpr string_view yn(bool cond, string_view yes_str = yes(),
         return no_str;
     }
 }
-constexpr string yn(bool cond, string_view yes_str = yes(),
-                    const string &no_str = static_cast<string>(no())) {
+constexpr string yn(bool cond, string_view yes_str, const string &no_str) {
     if (cond) {
         return static_cast<string>(yes_str);
     } else {
         return no_str;
     }
 }
-constexpr string yn(bool cond,
-                    const string &yes_str = static_cast<string>(yes()),
-                    string_view no_str = no()) {
+constexpr string yn(bool cond, const string &yes_str, string_view no_str) {
     if (cond) {
         return yes_str;
     } else {
         return static_cast<string>(no_str);
     }
 }
-constexpr string yn(bool cond,
-                    const string &yes_str = static_cast<string>(yes()),
-                    const string &no_str = static_cast<string>(no())) {
+constexpr string yn(bool cond, const string &yes_str, const string &no_str) {
     if (cond) {
         return yes_str;
     } else {
