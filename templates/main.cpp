@@ -479,6 +479,32 @@ constexpr string_view yn(bool cond, string_view yes_str = yes(),
         return no_str;
     }
 }
+constexpr string yn(bool cond, string_view yes_str = yes(),
+                    const string &no_str = static_cast<string>(no())) {
+    if (cond) {
+        return static_cast<string>(yes_str);
+    } else {
+        return no_str;
+    }
+}
+constexpr string yn(bool cond,
+                    const string &yes_str = static_cast<string>(yes()),
+                    string_view no_str = no()) {
+    if (cond) {
+        return yes_str;
+    } else {
+        return static_cast<string>(no_str);
+    }
+}
+constexpr string yn(bool cond,
+                    const string &yes_str = static_cast<string>(yes()),
+                    const string &no_str = static_cast<string>(no())) {
+    if (cond) {
+        return yes_str;
+    } else {
+        return no_str;
+    }
+}
 template <class T>
 constexpr T yn(bool cond, const T &yes_val, const T &no_val) {
     if (cond) {
