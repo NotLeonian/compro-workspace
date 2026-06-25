@@ -469,13 +469,28 @@ template <class T> void sort_and_dedup(T &v) {
     v.erase(unique(all(v)), v.end());
 }
 
-string_view yes() { return "Yes"; }
-string_view no() { return "No"; }
-string_view yn(bool cond) {
+constexpr string_view yes() { return "Yes"; }
+constexpr string_view no() { return "No"; }
+constexpr string_view yn(bool cond) {
     if (cond) {
         return yes();
     } else {
         return no();
+    }
+}
+constexpr string yn(bool cond, const string &yes_str, const string &no_str) {
+    if (cond) {
+        return yes_str;
+    } else {
+        return no_str;
+    }
+}
+template <class T>
+constexpr T yn(bool cond, const T &yes_val, const T &no_val) {
+    if (cond) {
+        return yes_val;
+    } else {
+        return no_val;
     }
 }
 
