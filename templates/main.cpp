@@ -485,7 +485,8 @@ string yn(bool cond, const string &yes_str, const string &no_str) {
         return no_str;
     }
 }
-template <class T> T yn(bool cond, const T &yes_val, const T &no_val) {
+template <class T>
+constexpr T yn(bool cond, const T &yes_val, const T &no_val) {
     if (cond) {
         return yes_val;
     } else {
