@@ -1,36 +1,36 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "build",
-			"type": "shell",
-			"command": "clang-format -i -style=file \"${file}\" && CXX=\"${workspaceFolder}/.vscode/g++-for-oj-bundle\" uv run oj-bundle -I \"${workspaceFolder}/libraries/ei1333\" -I \"${workspaceFolder}/libraries/nyaan\" -I \"${workspaceFolder}/libraries/suisen\" -I \"${workspaceFolder}/libraries/niche-library\" \"${file}\" > \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && g++ -o \"${fileDirname}/a.out\" -O3 -std=gnu++23 -I \"${workspaceFolder}/libraries/ac-library\" -I \"${workspaceFolder}/libraries/precompile\" -H \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && sed -i '/^#line/d' \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && clang-format -i -style=file \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\"",
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			}
-		},
-		{
-			"label": "build (debug)",
-			"type": "process",
-			"command": "${workspaceFolder}/.vscode/build-debug",
-			"args": ["--force", "${workspaceFolder}", "${file}"],
-			"problemMatcher": [],
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		},
-		{
-			"label": "ensure debug.out",
-			"type": "process",
-			"command": "${workspaceFolder}/.vscode/build-debug",
-			"args": ["${workspaceFolder}", "${file}"],
-			"problemMatcher": [],
-			"presentation": {
-				"reveal": "silent",
-				"panel": "dedicated"
-			}
-		}
-	]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "clang-format -i -style=file \"${file}\" && CXX=\"${workspaceFolder}/.vscode/g++-for-oj-bundle\" uv run oj-bundle -I \"${workspaceFolder}/libraries/ei1333\" -I \"${workspaceFolder}/libraries/nyaan\" -I \"${workspaceFolder}/libraries/suisen\" -I \"${workspaceFolder}/libraries/niche-library\" \"${file}\" > \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && g++ -o \"${fileDirname}/a.out\" -O3 -std=gnu++23 -I \"${workspaceFolder}/libraries/ac-library\" -I \"${workspaceFolder}/libraries/precompile\" -H \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && sed -i '/^#line/d' \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && clang-format -i -style=file \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\"",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build (debug)",
+            "type": "process",
+            "command": "${workspaceFolder}/.vscode/build-debug",
+            "args": ["--force", "${workspaceFolder}", "${file}"],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "ensure debug.out",
+            "type": "process",
+            "command": "${workspaceFolder}/.vscode/build-debug",
+            "args": ["${workspaceFolder}", "${file}"],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "silent",
+                "panel": "dedicated"
+            }
+        }
+    ]
 }

@@ -1,17 +1,17 @@
 {
-	"FPS (Nyaan's Library)": {
-		"prefix": "fps",
-		"body": "#include \"modint/montgomery-modint.hpp\"\nusing mint = LazyMontgomeryModInt<998244353>;\n\n#include \"fps/ntt-friendly-fps.hpp\"\nusing fps = FormalPowerSeries<mint>;",
-		"description": "Nyaan's Library の `modint/montgomery-modint.hpp` と `fps/ntt-friendly-fps.hpp` のインクルードおよび `mint` の定義\n先に `#define USE_AC_LIBRARY` をコメントアウトすること"
-	},
-	"template (ACL segtree)": {
-		"prefix": "segtree",
-		"body": "using S = $1;\nS op(S a, S b) {\n    $2\n}\nS e() { return $3; }\n\nusing segtree_type = segtree<S, op, e>;",
-		"description": "ACL の segtree のテンプレート"
-	},
-	"template (ACL lazy_segtree)": {
-		"prefix": "lazy_segtree",
-		"body": "using S = $1;\nS op(S a, S b) {\n    $2\n}\nS e() { return $3; }\n\nusing F = $4;\nS mapping(F f, S x) {\n    $5\n}\nF composition(F f, F g) { return $6; }\nF id() { return $7; }\n\nusing lst_type = lazy_segtree<S, op, e, F, mapping, composition, id>;",
-		"description": "ACL の lazy_segtree のテンプレート"
-	}
+    "FPS (Nyaan's Library)": {
+        "prefix": "fps",
+        "body": "#include \"modint/montgomery-modint.hpp\"\nusing mint = LazyMontgomeryModInt<998244353>;\n\n#include \"fps/ntt-friendly-fps.hpp\"\nusing fps = FormalPowerSeries<mint>;",
+        "description": "Nyaan's Library の `modint/montgomery-modint.hpp` と `fps/ntt-friendly-fps.hpp` のインクルードおよび `mint` の定義\n先に `#define USE_AC_LIBRARY` をコメントアウトすること"
+    },
+    "template (ACL segtree)": {
+        "prefix": "segtree",
+        "body": "using S = $1;\nS op(S a, S b) {\n    $2\n}\nS e() { return $3; }\n\nusing segtree_type = segtree<S, op, e>;",
+        "description": "ACL の segtree のテンプレート"
+    },
+    "template (ACL lazy_segtree)": {
+        "prefix": "lazy_segtree",
+        "body": "using S = $1;\nS op(S a, S b) {\n    $2\n}\nS e() { return $3; }\n\nusing F = $4;\nS mapping(F f, S x) {\n    $5\n}\nF composition(F f, F g) { return $6; }\nF id() { return $7; }\n\nusing lst_type = lazy_segtree<S, op, e, F, mapping, composition, id>;",
+        "description": "ACL の lazy_segtree のテンプレート"
+    }
 }
