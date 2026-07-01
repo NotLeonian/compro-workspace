@@ -65,3 +65,10 @@
 
 # Plain text
 *.txt   text
+
+# JSON and VS Code snippets
+*.code-snippets text
+*.json          text
+
+# Template input files
+*.in    text
