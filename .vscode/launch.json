@@ -1,23 +1,23 @@
 {
-	"version": "0.2.0",
-	"configurations": [
-		{
-			"name": "lldb debug",
-			"type": "lldb",
-			"request": "launch",
-			"preLaunchTask": "ensure debug.out",
-			"program": "/bin/bash",
-			"args": [
-				"${workspaceFolder}/.vscode/compro-shell",
-				"-c",
-				"exec \"$@\"",
-				"compro-lldb",
-				"${fileDirname}/debug.out"
-			],
-			"cwd": "${workspaceFolder}",
-			"terminal": "integrated",
-			"stdio": ["${workspaceFolder}/.vscode/input.txt", null, null],
-			"preRunCommands": ["settings set target.process.stop-on-exec false"]
-		}
-	]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "lldb debug",
+            "type": "lldb",
+            "request": "launch",
+            "preLaunchTask": "ensure debug.out",
+            "program": "/bin/bash",
+            "args": [
+                "${workspaceFolder}/.vscode/compro-shell",
+                "-c",
+                "exec \"$@\"",
+                "compro-lldb",
+                "${fileDirname}/debug.out"
+            ],
+            "cwd": "${workspaceFolder}",
+            "terminal": "integrated",
+            "stdio": ["${workspaceFolder}/.vscode/input.txt", null, null],
+            "preRunCommands": ["settings set target.process.stop-on-exec false"]
+        }
+    ]
 }
