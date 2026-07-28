@@ -106,7 +106,7 @@ def backup_file(path: pathlib.Path, *, no_backup: bool) -> None:
     if no_backup or not path.exists():
         return
 
-    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = dt.datetime.now(tz=dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     backup_path = path.with_name(f"{path.name}.bak.{stamp}")
     shutil.copy2(path, backup_path)
     print(f"backup: {path} -> {backup_path}", file=sys.stderr)
