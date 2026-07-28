@@ -492,12 +492,11 @@ def _split_top_level_testcases(analyzed, *, data: dict[str, Any]):
     if _simple_expr(loop.size) != count_name:
         return None
 
-    if force_multi is not True:
-        if not (
-            _is_strong_case_count_name(count_name)
-            or _has_testcase_text_signal(data, count_name=count_name)
-        ):
-            return None
+    if force_multi is not True and not (
+        _is_strong_case_count_name(count_name)
+        or _has_testcase_text_signal(data, count_name=count_name)
+    ):
+        return None
 
     return count_name, str(loop.name), loop.body
 
@@ -660,7 +659,7 @@ def _decls_have_unsafe_indexed_dimensions(
     *,
     counters: set[str],
 ) -> bool:
-    known_names = {str(name) for name in decls.keys()}
+    known_names = {str(name) for name in decls}
 
     for decl in decls.values():
         for dim in decl.dims:
@@ -675,7 +674,7 @@ def _decls_have_unsafe_indexed_dimensions(
 
 
 def _can_use_stock_read_input(input_format, input_variables) -> bool:
-    known_names = {str(name) for name in input_variables.keys()}
+    known_names = {str(name) for name in input_variables}
     counters = _collect_loop_counters(input_format)
 
     if _format_has_unsafe_indexed_loop_size(
@@ -684,13 +683,7 @@ def _can_use_stock_read_input(input_format, input_variables) -> bool:
     ):
         return False
 
-    if _decls_have_unsafe_indexed_dimensions(
-        input_variables,
-        counters=counters,
-    ):
-        return False
-
-    return True
+    return not _decls_have_unsafe_indexed_dimensions(input_variables, counters=counters)
 
 
 def _read_input_fallback(message: str = "failed to analyze input format") -> str:
@@ -916,7 +909,7 @@ def _allocate_safe_identifier(
 def _constant_names(data: dict[str, Any]) -> set[str]:
     analyzed = data.get("analyzed")
     constants = getattr(analyzed, "constants", {}) if analyzed is not None else {}
-    return {str(name) for name in constants.keys()}
+    return {str(name) for name in constants}
 
 
 def _make_lowercase_rename_map(
@@ -925,7 +918,7 @@ def _make_lowercase_rename_map(
     *,
     data: dict[str, Any],
 ) -> dict[str, str]:
-    names = [str(name) for name in input_variables.keys()]
+    names = [str(name) for name in input_variables]
     original_names = set(names)
     loop_counters = _collect_loop_counter_names(input_format)
 
@@ -1009,7 +1002,7 @@ def _rename_input_format(node, *, rename_map: dict[str, str]):
 def _rename_input_variables(input_variables, *, rename_map: dict[str, str]):
     result = {}
 
-    for _name, decl in input_variables.items():
+    for decl in input_variables.values():
         new_name = VarName(rename_map.get(str(decl.name), str(decl.name)))
 
         new_decl = decl._replace(

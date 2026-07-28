@@ -311,7 +311,7 @@ def _collect_distinct_specials(
             {
                 "kind": "distinct",
                 "name": var_name,
-                "size": _simple_expr(list(getattr(decl, "dims", []))[0]),
+                "size": _simple_expr(next(iter(getattr(decl, "dims", [])))),
             }
         )
 
