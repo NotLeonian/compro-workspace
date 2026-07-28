@@ -389,8 +389,7 @@ def main() -> None:
 
     prepare_config_path = config_dir / "prepare.config.toml"
     bridge_template_paths = {
-        template_name: template_dir / template_name
-        for template_name in template_specs
+        template_name: template_dir / template_name for template_name in template_specs
     }
 
     backup_file(prepare_config_path, no_backup=args.no_backup)
