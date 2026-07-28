@@ -1138,8 +1138,8 @@ def _build_generated_parts(data: dict[str, Any], *, logger):
             "    ::in(t);",
         )
 
-    except Exception as exc:
-        logger.warning("failed to generate input receiving code: %s", exc)
+    except Exception:
+        logger.exception("failed to generate input receiving code")
         return (
             "",
             "    // failed to generate input receiving code; edit here",
