@@ -5,7 +5,7 @@ import re
 import sys
 from typing import Any
 
-import onlinejudge_template.generator.cplusplus as cplusplus
+from onlinejudge_template.generator import cplusplus
 from onlinejudge_template.types import (
     Expr,
     ItemNode,
@@ -323,7 +323,7 @@ def _transform_decls(
         )
         transformed[new_decl.name] = new_decl
 
-    known_names = {str(name) for name in transformed.keys()}
+    known_names = {str(name) for name in transformed}
     fixed: dict[VarName, VarDecl] = {}
 
     for name, decl in transformed.items():
