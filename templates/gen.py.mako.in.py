@@ -311,7 +311,7 @@ def _collect_distinct_specials(
             {
                 "kind": "distinct",
                 "name": var_name,
-                "size": _simple_expr(list(getattr(decl, "dims", []))[0]),
+                "size": _simple_expr(next(iter(getattr(decl, "dims", [])))),
             }
         )
 
@@ -526,6 +526,6 @@ def _build_gen_py(data: dict[str, Any], *, logger) -> str:
         )
 
         return source
-    except Exception as exc:
-        logger.warning("failed to generate gen.py: %s", exc)
+    except Exception:
+        logger.exception("failed to generate gen.py")
         return _fallback_source("failed to generate gen.py")

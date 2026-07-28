@@ -106,7 +106,7 @@ def backup_file(path: pathlib.Path, *, no_backup: bool) -> None:
     if no_backup or not path.exists():
         return
 
-    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = dt.datetime.now(tz=dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     backup_path = path.with_name(f"{path.name}.bak.{stamp}")
     shutil.copy2(path, backup_path)
     print(f"backup: {path} -> {backup_path}", file=sys.stderr)
@@ -389,8 +389,7 @@ def main() -> None:
 
     prepare_config_path = config_dir / "prepare.config.toml"
     bridge_template_paths = {
-        template_name: template_dir / template_name
-        for template_name in template_specs.keys()
+        template_name: template_dir / template_name for template_name in template_specs
     }
 
     backup_file(prepare_config_path, no_backup=args.no_backup)
@@ -432,14 +431,14 @@ def main() -> None:
         )
         write_text(bridge_template_paths[template_name], bridge_template)
 
-    print("", file=sys.stderr)
+    print(file=sys.stderr)
     print("installed runtime workspace:", file=sys.stderr)
     print(f"  workspace_root      = {workspace_root}", file=sys.stderr)
     print(f"  problems            = {workspace_root / 'problems'}", file=sys.stderr)
     print(
         f"  ojp                 = {workspace_root / 'scripts' / 'ojp'}", file=sys.stderr
     )
-    print("", file=sys.stderr)
+    print(file=sys.stderr)
     print("installed oj-prepare configuration:", file=sys.stderr)
     print(f"  prepare.config.toml = {prepare_config_path}", file=sys.stderr)
     for template_name, bridge_template_path in bridge_template_paths.items():

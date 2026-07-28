@@ -330,22 +330,20 @@ def _numeric_bound_group_is_standalone(
         return False
 
     previous = _previous_non_space(line, start)
-    if previous is not None:
-        if (
-            _is_ascii_identifier_char(previous)
-            or previous in _NUMERIC_BOUND_FORBIDDEN_LEFT_CHARS
-        ):
-            return False
+    if previous is not None and (
+        _is_ascii_identifier_char(previous)
+        or previous in _NUMERIC_BOUND_FORBIDDEN_LEFT_CHARS
+    ):
+        return False
 
     following = _next_non_space(line, end)
-    if following is not None:
-        if (
+    return not (
+        following is not None
+        and (
             _is_ascii_identifier_char(following)
             or following in _NUMERIC_BOUND_FORBIDDEN_RIGHT_CHARS
-        ):
-            return False
-
-    return True
+        )
+    )
 
 
 def _numeric_bound_groups_are_standalone(
@@ -588,7 +586,7 @@ def collect_array_names_from_format(node) -> set[str]:
 
 
 def collect_dimension_mentions(input_variables) -> set[str]:
-    names = {str(name) for name in input_variables.keys()}
+    names = {str(name) for name in input_variables}
     mentioned: set[str] = set()
 
     for decl in input_variables.values():

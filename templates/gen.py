@@ -206,7 +206,7 @@ def rand_product_sequence_exact(n, total, lo, hi):
             return []
         raise ValueError("empty sequence has product 1")
 
-    @functools.lru_cache(maxsize=None)
+    @functools.cache
     def feasible(k, remaining):
         if k == 0:
             return remaining == 1
