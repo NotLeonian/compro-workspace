@@ -337,7 +337,13 @@ def _numeric_bound_group_is_standalone(
         return False
 
     following = _next_non_space(line, end)
-    return not (following is not None and (_is_ascii_identifier_char(following) or following in _NUMERIC_BOUND_FORBIDDEN_RIGHT_CHARS))
+    return not (
+        following is not None
+        and (
+            _is_ascii_identifier_char(following)
+            or following in _NUMERIC_BOUND_FORBIDDEN_RIGHT_CHARS
+        )
+    )
 
 
 def _numeric_bound_groups_are_standalone(
