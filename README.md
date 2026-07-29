@@ -45,7 +45,7 @@ cd ../..
 
 > [!NOTE]
 > 必須ではないオプションとして `--no-backup` または `--backup` がある。
-> これは prepare.config.toml や template が既に存在する場合にそれらをバックアップするかを指定するオプション。
+> これは `.python-version`、prepare.config.toml、template が既に存在する場合にそれらをバックアップするかを指定するオプション。
 
 その後、問題を解くワークスペースのルートで `oj-prepare` またはそのラッパー `./scripts/ojp` を実行できる。
 

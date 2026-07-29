@@ -297,14 +297,14 @@ def main() -> None:
         "--no-backup",
         dest="no_backup",
         action="store_true",
-        help="prepare.config.toml や template が既に存在する場合に、それらをバックアップしない。",
+        help=".python-version, prepare.config.toml, template が既に存在する場合に、それらをバックアップしない。",
     )
 
     group.add_argument(
         "--backup",
         dest="no_backup",
         action="store_false",
-        help="prepare.config.toml や template が既に存在する場合に、それらをバックアップする。",
+        help=".python-version, prepare.config.toml, template が既に存在する場合に、それらをバックアップする。",
     )
 
     parser.set_defaults(no_backup=False)
@@ -348,6 +348,9 @@ def main() -> None:
 
     # 問題を解くワークスペースのルートディレクトリの作成
     workspace_root.mkdir(parents=True, exist_ok=True)
+
+    # uv の .python-version のバックアップ
+    backup_file(workspace_root / ".python-version", no_backup=args.no_backup)
 
     # ファイル一式のコピー
     for name in RUNTIME_ITEMS:
