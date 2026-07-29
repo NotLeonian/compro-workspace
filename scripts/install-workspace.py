@@ -7,6 +7,7 @@ import os
 import pathlib
 import shutil
 import stat
+import subprocess
 import sys
 import textwrap
 from dataclasses import dataclass
@@ -142,6 +143,72 @@ def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
         shutil.copy2(src, dst)
 
     print(f"copied: {src} -> {dst}", file=sys.stderr)
+
+
+def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
+    """
+    pyenv と共有する .python-version は単純なバージョン番号とし、
+    ワークスペースの仮想環境は同じバージョンの CPython で同期する。
+
+    --inexact により、既に互換性のある環境に手動で追加されたパッケージは保持する。
+    PyPy など互換性のない環境は uv により CPython の環境へ再作成される。
+    """
+
+    python_version_path = workspace_root / ".python-version"
+    python_version = python_version_path.read_text(encoding="utf-8").strip()
+    version_parts = python_version.split(".")
+    if not 1 <= len(version_parts) <= 3 or any(
+        not part.isascii() or not part.isdigit() for part in version_parts
+    ):
+        raise SystemExit(
+            f"error: expected a plain Python version number in {python_version_path}"
+        )
+
+    python_request = f"cpython@{python_version}"
+    venv_path = workspace_root / ".venv"
+    uv_path = shutil.which("uv")
+    if uv_path is None:
+        raise SystemExit("error: uv command not found")
+
+    env = os.environ.copy()
+    for name in [
+        "CONDA_PREFIX",
+        "PYENV_DIR",
+        "PYENV_VERSION",
+        "UV_PROJECT",
+        "UV_PROJECT_ENVIRONMENT",
+        "UV_PYTHON",
+        "UV_WORKING_DIR",
+        "VIRTUAL_ENV",
+    ]:
+        env.pop(name, None)
+    env["UV_PROJECT_ENVIRONMENT"] = os.fspath(venv_path)
+
+    print(
+        f"syncing Python environment: {venv_path} ({python_request})",
+        file=sys.stderr,
+    )
+
+    try:
+        subprocess.run(
+            [
+                uv_path,
+                "sync",
+                "--project",
+                os.fspath(workspace_root),
+                "--python",
+                python_request,
+                "--locked",
+                "--inexact",
+            ],
+            cwd=workspace_root,
+            env=env,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise SystemExit(
+            f"error: failed to sync Python environment: {venv_path}"
+        ) from e
 
 
 def write_text(path: pathlib.Path, content: str) -> None:
@@ -355,6 +422,9 @@ def main() -> None:
     # ファイル一式のコピー
     for name in RUNTIME_ITEMS:
         copy_item(source_root / name, workspace_root / name)
+
+    # CPython の仮想環境の作成・同期
+    sync_workspace_environment(workspace_root)
 
     # コピーされたスクリプトへの実行権限の付与
     for relpath in [
