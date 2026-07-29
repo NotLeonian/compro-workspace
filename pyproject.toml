@@ -21,6 +21,39 @@ dev = [
     "ruff>=0.15.15",
 ]
 
+[tool.mypy]
+exclude = [
+    "^libraries/ac-library(?:/|$)",
+    "^libraries/ei1333(?:/|$)",
+    "^libraries/niche-library(?:/|$)",
+    "^libraries/nyaan(?:/|$)",
+    "^libraries/suisen(?:/|$)",
+]
+python_version = "3.10"
+
+[tool.pyright]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    ".venv",
+    "libraries/ac-library/**",
+    "libraries/ei1333/**",
+    "libraries/niche-library/**",
+    "libraries/nyaan/**",
+    "libraries/suisen/**",
+]
+pythonVersion = "3.10"
+
+[tool.ruff]
+extend-exclude = [
+    "libraries/ac-library/**",
+    "libraries/ei1333/**",
+    "libraries/niche-library/**",
+    "libraries/nyaan/**",
+    "libraries/suisen/**",
+]
+
 [tool.ruff.format]
 quote-style = "preserve"
 
