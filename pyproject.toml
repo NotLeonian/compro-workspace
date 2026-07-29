@@ -49,7 +49,7 @@ pythonVersion = "3.10"
 extend-exclude = [
     "libraries/ac-library/**",
     "libraries/ei1333/**",
-    "libraries/niche-library/**",
+    "libraries/niche-library",
     "libraries/nyaan/**",
     "libraries/suisen/**",
 ]
