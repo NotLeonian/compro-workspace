@@ -70,7 +70,6 @@ online-judge-template-generator = { git = "https://github.com/t4-project/templat
 
 [[tool.mypy.overrides]]
 module = [
-    "appdirs.*",
     "onlinejudge_template.*",
 ]
 ignore_missing_imports = true

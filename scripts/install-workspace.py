@@ -35,35 +35,29 @@ def user_config_dir() -> pathlib.Path:
 
     template-generator の実装は
     appdirs.user_config_dir("online-judge-tools") を
-    使っているので、appdirs があればそれに合わせる。
+    使っているので、それと同じ規則でパスを組み立てる。
     """
 
-    try:
-        import appdirs
-    except ImportError:
-        appdirs = None
-
-    if appdirs is not None:
-        return pathlib.Path(appdirs.user_config_dir("online-judge-tools"))
+    app_name = "online-judge-tools"
 
     if sys.platform == "darwin":
-        return (
-            pathlib.Path.home()
-            / "Library"
-            / "Application Support"
-            / "online-judge-tools"
-        )
+        return pathlib.Path.home() / "Library" / "Application Support" / app_name
 
-    if os.name == "nt":
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            return pathlib.Path(appdata) / "online-judge-tools"
+    if sys.platform == "win32":
+        local_appdata = os.environ.get("LOCALAPPDATA")
+        base_dir = (
+            pathlib.Path(local_appdata)
+            if local_appdata
+            else pathlib.Path.home() / "AppData" / "Local"
+        )
+        # appdirs では appauthor の既定値も appname になる。
+        return base_dir / app_name / app_name
 
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config_home:
-        return pathlib.Path(xdg_config_home) / "online-judge-tools"
+        return pathlib.Path(xdg_config_home) / app_name
 
-    return pathlib.Path.home() / ".config" / "online-judge-tools"
+    return pathlib.Path.home() / ".config" / app_name
 
 
 def toml_string(s: str) -> str:
