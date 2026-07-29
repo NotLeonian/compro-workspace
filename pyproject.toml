@@ -16,6 +16,7 @@ dev = [
     "online-judge-template-generator",
     "online-judge-tools>=11.5.1",
     "online-judge-verify-helper>=5.6.0",
+    "pyright>=1.1.411",
     "ruff>=0.15.15",
 ]
 
