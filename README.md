@@ -78,3 +78,14 @@ Luzhiled's Library と Nyaan's Library の `geometry/` カテゴリ内の一部�
 #include "../nyaan/geometry/circle.hpp"
 ```
 のように相対パスの先頭に `../(ei1333|nyaan|suisen)` を追加すればよい。
+
+## 開発者向け
+### Python checks
+Python ソースコードのフォーマットと静的検査には以下のコマンドを使用できる。
+
+```sh
+uv run ruff format .
+uv run ruff check .
+uv run pyright
+uv run mypy .
+```
