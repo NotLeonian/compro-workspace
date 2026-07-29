@@ -148,10 +148,12 @@ def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
 def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
     """
     pyenv と共有する .python-version は単純なバージョン番号とし、
-    ワークスペースの仮想環境は同じバージョンの CPython で同期する。
+    ワークスペース用の仮想環境を同じバージョンの CPython で
+    uv のキャッシュ内に同期する。
 
-    --inexact により、既に互換性のある環境に手動で追加されたパッケージは保持する。
-    PyPy など互換性のない環境は uv により CPython の環境へ再作成される。
+    --inexact により、キャッシュ内にある既存の互換環境に
+    手動で追加されたパッケージは保持する。
+    別実装や別バージョンの Python 環境は uv のキャッシュに別々に保持される。
     """
 
     python_version_path = workspace_root / ".python-version"
@@ -165,7 +167,6 @@ def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
         )
 
     python_request = f"cpython@{python_version}"
-    venv_path = workspace_root / ".venv"
     uv_path = shutil.which("uv")
     if uv_path is None:
         raise SystemExit("error: uv command not found")
@@ -182,10 +183,9 @@ def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
         "VIRTUAL_ENV",
     ]:
         env.pop(name, None)
-    env["UV_PROJECT_ENVIRONMENT"] = os.fspath(venv_path)
 
     print(
-        f"syncing Python environment: {venv_path} ({python_request})",
+        f"syncing Python environment in uv cache: {workspace_root} ({python_request})",
         file=sys.stderr,
     )
 
@@ -207,7 +207,7 @@ def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
         )
     except subprocess.CalledProcessError as e:
         raise SystemExit(
-            f"error: failed to sync Python environment: {venv_path}"
+            f"error: failed to sync Python environment for workspace: {workspace_root}"
         ) from e
 
 
@@ -423,7 +423,7 @@ def main() -> None:
     for name in RUNTIME_ITEMS:
         copy_item(source_root / name, workspace_root / name)
 
-    # CPython の仮想環境の作成・同期
+    # CPython の仮想環境を uv のキャッシュ内に作成・同期
     sync_workspace_environment(workspace_root)
 
     # コピーされたスクリプトへの実行権限の付与
