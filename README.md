@@ -2,7 +2,9 @@
 My C++ workspace for competitive programming
 
 ## Installation
-まず、`libraries/` の中身が空であれば、
+まず、uv 0.11.25 以上をインストールする（インストール済みの uv が古い場合はアップグレードする）。
+
+`libraries/` の中身が空であれば、
 ```sh
 git submodule update --init --recursive
 ```
