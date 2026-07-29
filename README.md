@@ -2,7 +2,9 @@
 My C++ workspace for competitive programming
 
 ## Installation
-まず、`libraries/` の中身が空であれば、
+まず、uv 0.11.25 以上をインストールする（インストール済みの uv が古い場合はアップグレードする）。
+
+`libraries/` の中身が空であれば、
 ```sh
 git submodule update --init --recursive
 ```
@@ -48,8 +50,15 @@ cd ../..
 > これは `.python-version`、prepare.config.toml、template が既に存在する場合にそれらをバックアップするかを指定するオプションである。
 
 > [!NOTE]
-> インストーラは `.venv` を CPython 3.11 で同期する。  
-> 既存の `.venv` が PyPy または別バージョンの Python で作られている場合は CPython 3.11 の環境として再作成されるため、その環境へ手動で追加していたパッケージは引き継がれない。
+> インストーラは CPython 3.11 の仮想環境を uv のキャッシュ内に同期する。  
+> 環境本体は uv のキャッシュに保存され、`.venv` は通常、現在選択されている環境へのリンクになる。
+>
+> 同じ Python インタープリタ用の環境がキャッシュ内に既にある場合、そこへ手動で追加したパッケージは `--inexact` により保持される。  
+> 別実装や別バージョンの Python 環境は別々にキャッシュされるため、切り替え直したときに再利用できる。
+>
+> ただし、`centralized-project-envs` を使わずに実ディレクトリとして作成された `.venv` から初めてキャッシュ内の環境へ移行する場合、その `.venv` に手動で追加していたパッケージは引き継がれない。
+>
+> なお、インストール後に `uv sync --no-dev --python pypy3.11` を実行することで、PyPy と相性の悪い Mypy などを避けて環境を作成し、キャッシュすることができる。
 
 その後、問題を解くワークスペースのルートで `oj-prepare` またはそのラッパー `./scripts/ojp` を実行できる。
 

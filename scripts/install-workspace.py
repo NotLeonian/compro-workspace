@@ -35,35 +35,49 @@ def user_config_dir() -> pathlib.Path:
 
     template-generator の実装は
     appdirs.user_config_dir("online-judge-tools") を
-    使っているので、appdirs があればそれに合わせる。
+    使っているので、それと同じ規則でパスを組み立てる。
     """
 
-    try:
-        import appdirs
-    except ImportError:
-        appdirs = None
-
-    if appdirs is not None:
-        return pathlib.Path(appdirs.user_config_dir("online-judge-tools"))
+    app_name = "online-judge-tools"
 
     if sys.platform == "darwin":
-        return (
-            pathlib.Path.home()
-            / "Library"
-            / "Application Support"
-            / "online-judge-tools"
-        )
+        return pathlib.Path.home() / "Library" / "Application Support" / app_name
 
-    if os.name == "nt":
-        appdata = os.environ.get("APPDATA")
-        if appdata:
-            return pathlib.Path(appdata) / "online-judge-tools"
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        sh_get_folder_path = ctypes.windll.shell32.SHGetFolderPathW
+        sh_get_folder_path.argtypes = (
+            wintypes.HWND,
+            ctypes.c_int,
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPWSTR,
+        )
+        sh_get_folder_path.restype = wintypes.LONG
+
+        path_buffer = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+        hresult = sh_get_folder_path(
+            None,
+            28,  # CSIDL_LOCAL_APPDATA
+            None,
+            0,  # SHGFP_TYPE_CURRENT
+            path_buffer,
+        )
+        if hresult != 0:
+            raise OSError(
+                f"SHGetFolderPathW failed with HRESULT 0x{hresult & 0xFFFFFFFF:08X}"
+            )
+
+        # appdirs では appauthor の既定値も appname になる。
+        return pathlib.Path(path_buffer.value) / app_name / app_name
 
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config_home:
-        return pathlib.Path(xdg_config_home) / "online-judge-tools"
+        return pathlib.Path(xdg_config_home) / app_name
 
-    return pathlib.Path.home() / ".config" / "online-judge-tools"
+    return pathlib.Path.home() / ".config" / app_name
 
 
 def toml_string(s: str) -> str:
@@ -148,10 +162,12 @@ def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
 def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
     """
     pyenv と共有する .python-version は単純なバージョン番号とし、
-    ワークスペースの仮想環境は同じバージョンの CPython で同期する。
+    ワークスペース用の仮想環境を同じバージョンの CPython で
+    uv のキャッシュ内に同期する。
 
-    --inexact により、既に互換性のある環境に手動で追加されたパッケージは保持する。
-    PyPy など互換性のない環境は uv により CPython の環境へ再作成される。
+    --inexact により、キャッシュ内にある既存の互換環境に
+    手動で追加されたパッケージは保持する。
+    別実装や別バージョンの Python 環境は uv のキャッシュに別々に保持される。
     """
 
     python_version_path = workspace_root / ".python-version"
@@ -165,7 +181,6 @@ def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
         )
 
     python_request = f"cpython@{python_version}"
-    venv_path = workspace_root / ".venv"
     uv_path = shutil.which("uv")
     if uv_path is None:
         raise SystemExit("error: uv command not found")
@@ -182,10 +197,9 @@ def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
         "VIRTUAL_ENV",
     ]:
         env.pop(name, None)
-    env["UV_PROJECT_ENVIRONMENT"] = os.fspath(venv_path)
 
     print(
-        f"syncing Python environment: {venv_path} ({python_request})",
+        f"syncing Python environment in uv cache: {workspace_root} ({python_request})",
         file=sys.stderr,
     )
 
@@ -207,7 +221,7 @@ def sync_workspace_environment(workspace_root: pathlib.Path) -> None:
         )
     except subprocess.CalledProcessError as e:
         raise SystemExit(
-            f"error: failed to sync Python environment: {venv_path}"
+            f"error: failed to sync Python environment for workspace: {workspace_root}"
         ) from e
 
 
@@ -423,7 +437,7 @@ def main() -> None:
     for name in RUNTIME_ITEMS:
         copy_item(source_root / name, workspace_root / name)
 
-    # CPython の仮想環境の作成・同期
+    # CPython の仮想環境を uv のキャッシュ内に作成・同期
     sync_workspace_environment(workspace_root)
 
     # コピーされたスクリプトへの実行権限の付与
