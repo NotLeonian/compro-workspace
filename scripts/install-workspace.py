@@ -44,14 +44,34 @@ def user_config_dir() -> pathlib.Path:
         return pathlib.Path.home() / "Library" / "Application Support" / app_name
 
     if sys.platform == "win32":
-        local_appdata = os.environ.get("LOCALAPPDATA")
-        base_dir = (
-            pathlib.Path(local_appdata)
-            if local_appdata
-            else pathlib.Path.home() / "AppData" / "Local"
+        import ctypes
+        from ctypes import wintypes
+
+        sh_get_folder_path = ctypes.windll.shell32.SHGetFolderPathW
+        sh_get_folder_path.argtypes = (
+            wintypes.HWND,
+            ctypes.c_int,
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPWSTR,
         )
+        sh_get_folder_path.restype = wintypes.LONG
+
+        path_buffer = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+        hresult = sh_get_folder_path(
+            None,
+            28,  # CSIDL_LOCAL_APPDATA
+            None,
+            0,  # SHGFP_TYPE_CURRENT
+            path_buffer,
+        )
+        if hresult != 0:
+            raise OSError(
+                f"SHGetFolderPathW failed with HRESULT 0x{hresult & 0xFFFFFFFF:08X}"
+            )
+
         # appdirs では appauthor の既定値も appname になる。
-        return base_dir / app_name / app_name
+        return pathlib.Path(path_buffer.value) / app_name / app_name
 
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config_home:
