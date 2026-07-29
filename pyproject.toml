@@ -12,6 +12,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "aclogin>=0.2.1",
+    "mypy>=2.3.0",
     "online-judge-api-client",
     "online-judge-template-generator",
     "online-judge-tools>=11.5.1",
