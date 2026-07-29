@@ -60,6 +60,10 @@ quote-style = "preserve"
 [tool.ruff.lint]
 extend-select = ["I"]
 
+[tool.uv]
+required-version = ">=0.11.25"
+preview-features = ["centralized-project-envs"]
+
 [tool.uv.sources]
 online-judge-api-client = { git = "https://github.com/himoooooono/api-client", rev = "9f52b9a47d0d488730572f22faa410a2c6e914b8" }
 online-judge-template-generator = { git = "https://github.com/t4-project/template-generator.git", rev = "cb3a9a6feb4425f5c7e2728171c9948a782e5af0" }
