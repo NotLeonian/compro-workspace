@@ -1,0 +1,15 @@
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      # These tools depend on one another; review their updates together.
+      online-judge:
+        applies-to: version-updates
+        patterns:
+          - "online-judge-api-client"
+          - "online-judge-template-generator"
+          - "online-judge-tools"
+          - "online-judge-verify-helper"
