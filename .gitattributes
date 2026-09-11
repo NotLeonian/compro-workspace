@@ -59,6 +59,10 @@
 # Shell
 *.sh    text diff=bash
 
+# YAML
+*.yml   text
+*.yaml  text
+
 # Configuration and lock files
 *.toml  text
 *.lock  text

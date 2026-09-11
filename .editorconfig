@@ -31,3 +31,7 @@ insert_final_newline = unset
 # Shell
 [*.sh]
 indent_size = 2
+
+# YAML
+[*.{yml,yaml}]
+indent_size = 2
