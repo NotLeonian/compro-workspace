@@ -1,0 +1,30 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  python-checks:
+    name: Python checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.0"
+          enable-cache: true
+      - name: Install Python and dependencies
+        run: |
+          uv python install
+          uv sync --locked
+      - name: Ruff format
+        run: uv run --locked ruff format --check .
+      - name: Ruff lint
+        run: uv run --locked ruff check .
+      - name: Pyright
+        run: uv run --locked pyright
+      - name: Mypy
+        run: uv run --no-sync mypy .
