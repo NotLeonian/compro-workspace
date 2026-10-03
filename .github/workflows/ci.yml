@@ -18,7 +18,7 @@ jobs:
           enable-cache: true
       - name: Install Python and dependencies
         run: |
-          uv python install 3.13
+          uv python install
           uv sync --locked
       - name: Ruff format
         run: uv run --locked ruff format --check .
