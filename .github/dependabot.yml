@@ -5,6 +5,9 @@ updates:
     schedule:
       interval: "weekly"
     rebase-strategy: disabled
+    allow:
+      # Allow updates for all direct and indirect dependencies.
+      - dependency-type: "all"
     groups:
       # These tools depend on one another; review their updates together.
       online-judge:
