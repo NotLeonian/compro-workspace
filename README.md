@@ -111,7 +111,9 @@ uv run python .vscode/bundle.py problems/example/main.cpp -o submission.cpp
 | `libraries/niche-library` | <https://github.com/NotLeonian/NicheLibrary> |
 
 URL は `https://github.com/<owner>/<repo>/blob/<コミットSHA>/<ファイルのパス>` とする。
-同名のヘッダがある場合も、`oj-bundle` の `#line` が示す実際のパスで区別する。
+`oj-bundle` と同じ展開処理を使い、各ファイルを読み込む際にパスを記録する。
+同名のヘッダがある場合も、実際に読み込んだファイルのパスで区別する。
+別のヘッダを読み込むだけのファイルも記録し、URL の添付と内容の照合を行う。
 ACL、標準ライブラリ、`precompile.hpp` の `#include` は展開せずに残す。
 4 ライブラリ以外のローカルヘッダは従来どおり展開するが、URL は自動で付けない。
 

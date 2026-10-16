@@ -194,6 +194,18 @@ class BundleTests(unittest.TestCase):
         self.assertIn("#line ", code)
         self.assertIn("#include <bits/stdc++.h>", code)
         self.assertIn("#include <atcoder/all>", code)
+        environment = os.environ.copy()
+        environment["CXX"] = str(self.root / ".vscode/g++-for-oj-bundle")
+        command = [sys.executable, "-m", "onlinejudge_bundle.main"]
+        for name in LIBRARIES:
+            command.extend(["-I", str(self.root / "libraries" / name)])
+        original = subprocess.check_output(
+            [*command, str(self.source)],
+            cwd=self.root,
+            env=environment,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(self.output.read_bytes().split(b"\n\n", 1)[1], original)
         executable = self.output.parent / "program"
         subprocess.run(
             [
@@ -218,6 +230,87 @@ class BundleTests(unittest.TestCase):
         self.export_and_remove_git()
         self.assert_success(self.run_script(str(self.source)))
         self.assertEqual(self.output.read_bytes(), expected)
+
+    def test_manifest_export_does_not_require_site_packages(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-S",
+                str(self.root / ".vscode/bundle.py"),
+                "--write-manifest",
+                str(self.manifest),
+            ],
+            capture_output=True,
+            check=False,
+        )
+        self.assert_success(result)
+        data = json.loads(self.manifest.read_text())
+        self.assertEqual(set(data["libraries"]), set(LIBRARIES))
+
+    def use_include_only_header(self) -> str:
+        headers = HEADERS["niche-library"] | {
+            "umbrella.hpp": '#include "nested.hpp"\n',
+            "nested.hpp": '#include "value.hpp"\n',
+            "alternative.hpp": HEADERS["niche-library"]["value.hpp"].replace(
+                "niche_value = 4", "niche_value = 5"
+            ),
+        }
+        commit = commit_files(self.root / "libraries/niche-library", headers)
+        self.source.write_text(
+            SOURCE.replace('#include "value.hpp"', '#include "umbrella.hpp"'),
+            encoding="utf-8",
+        )
+        return commit
+
+    def test_include_only_headers_get_urls(self) -> None:
+        commit = self.use_include_only_header()
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                if installed:
+                    self.export_and_remove_git()
+                self.assert_success(self.run_script(str(self.source)))
+                lines = self.output.read_text().splitlines()
+                for filename in ("umbrella.hpp", "nested.hpp", "value.hpp"):
+                    url = (
+                        "// https://github.com/NotLeonian/NicheLibrary/blob/"
+                        f"{commit}/{filename}"
+                    )
+                    self.assertEqual(lines.count(url), 1)
+
+    def test_modified_include_only_header_preserves_output(self) -> None:
+        self.use_include_only_header()
+        umbrella = self.root / "libraries/niche-library/umbrella.hpp"
+        umbrella.write_text('#include "alternative.hpp"\n', encoding="utf-8")
+        self.assert_bundle_error("source differs from commit")
+        self.export_and_remove_git()
+        self.assert_bundle_error("source differs from commit")
+
+    def test_untracked_include_only_header_preserves_output(self) -> None:
+        umbrella = self.root / "libraries/niche-library/umbrella.hpp"
+        umbrella.write_text('#include "value.hpp"\n', encoding="utf-8")
+        self.source.write_text(
+            SOURCE.replace('#include "value.hpp"', '#include "umbrella.hpp"'),
+            encoding="utf-8",
+        )
+        self.assert_bundle_error("source is absent from commit")
+        self.export_and_remove_git()
+        self.assert_bundle_error("source is absent from commit")
+
+    def test_stale_include_only_header_preserves_output(self) -> None:
+        self.use_include_only_header()
+        commit_files(self.root / "libraries/niche-library", HEADERS["niche-library"])
+        self.assert_bundle_error("source is absent from commit")
+        self.export_and_remove_git()
+        self.assert_bundle_error("source is absent from commit")
+
+    def test_output_cannot_overwrite_include_only_input(self) -> None:
+        self.use_include_only_header()
+        umbrella = self.root / "libraries/niche-library/umbrella.hpp"
+        original = umbrella.read_bytes()
+        result = self.run_script(str(self.source), "-o", str(umbrella))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("output must differ", result.stderr.decode())
+        self.assertEqual(umbrella.read_bytes(), original)
 
     def test_modified_git_header_preserves_output(self) -> None:
         path = self.root / "libraries/ei1333/geometry/detail/value.hpp"

@@ -160,14 +160,40 @@ def write_manifest(root: Path, destination: Path) -> None:
     atomic_write(destination, (content + "\n").encode())
 
 
-def traced_paths(root: Path, code: bytes) -> set[Path]:
+def expand(root: Path, source: Path) -> tuple[bytes, set[Path]]:
+    # Manifest export must also work without importing oj-bundle.
+    try:
+        from onlinejudge_verify.languages.cplusplus_bundle import (
+            BundleError as OjBundleError,
+        )
+        from onlinejudge_verify.languages.cplusplus_bundle import (
+            Bundler,
+        )
+    except ImportError as error:
+        raise BundleError(
+            "oj-bundle is unavailable; install online-judge-verify-helper"
+        ) from error
+
     paths: set[Path] = set()
-    for line in code.splitlines():
-        match = re.fullmatch(rb'#line [0-9]+ (".*")', line)
-        if match:
-            filename = json.loads(match.group(1))
-            paths.add((root / filename).resolve())
-    return paths
+
+    class TrackingBundler(Bundler):
+        def update(self, path: Path) -> None:
+            paths.add(path.resolve())
+            super().update(path)
+
+    bundler = TrackingBundler(
+        iquotes=[root, *(root / "libraries" / name for name in LIBRARIES)],
+        compiler=str(root / ".vscode/g++-for-oj-bundle"),
+    )
+    previous_directory = Path.cwd()
+    try:
+        os.chdir(root)
+        bundler.update(source)
+    except (OjBundleError, subprocess.CalledProcessError) as error:
+        raise BundleError(f"oj-bundle failed: {error}") from error
+    finally:
+        os.chdir(previous_directory)
+    return bundler.get(), paths
 
 
 def add_sources(root: Path, code: bytes, paths: set[Path]) -> bytes:
@@ -210,21 +236,10 @@ def add_sources(root: Path, code: bytes, paths: set[Path]) -> bytes:
 
 
 def bundle(root: Path, source: Path, destination: Path) -> None:
-    environment = os.environ.copy()
-    environment["CXX"] = str(root / ".vscode/g++-for-oj-bundle")
-    command = [sys.executable, "-m", "onlinejudge_bundle.main"]
-    for name in LIBRARIES:
-        command.extend(["-I", str(root / "libraries" / name)])
-    command.append(str(source))
-    result = subprocess.run(
-        command, cwd=root, env=environment, stdout=subprocess.PIPE, check=False
-    )
-    if result.returncode:
-        raise BundleError(f"oj-bundle failed with exit code {result.returncode}")
-    paths = traced_paths(root, result.stdout)
+    code, paths = expand(root, source)
     if destination in paths or destination == source:
         raise BundleError("output must differ from every input file")
-    atomic_write(destination, add_sources(root, result.stdout, paths))
+    atomic_write(destination, add_sources(root, code, paths))
 
 
 def main() -> int:

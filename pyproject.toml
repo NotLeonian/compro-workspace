@@ -71,5 +71,6 @@ online-judge-template-generator = { git = "https://github.com/t4-project/templat
 [[tool.mypy.overrides]]
 module = [
     "onlinejudge_template.*",
+    "onlinejudge_verify.languages.cplusplus_bundle",
 ]
 ignore_missing_imports = true
