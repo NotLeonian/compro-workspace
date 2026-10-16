@@ -408,6 +408,7 @@ class BundleTests(unittest.TestCase):
         ):
             shutil.copy2(REPOSITORY / filename, self.root / filename)
         shutil.copytree(REPOSITORY / "templates", self.root / "templates")
+        shutil.copytree(REPOSITORY / "typings", self.root / "typings")
         for filename in ("build-debug", "compro-shell"):
             shutil.copy2(
                 REPOSITORY / ".vscode" / filename, self.root / ".vscode" / filename
@@ -435,6 +436,11 @@ class BundleTests(unittest.TestCase):
         )
         self.assert_success(result)
         self.assertTrue((destination / "libraries/.bundle-sources.json").is_file())
+        for stub in (REPOSITORY / "typings").rglob("*.pyi"):
+            installed_stub = (
+                destination / "typings" / stub.relative_to(REPOSITORY / "typings")
+            )
+            self.assertEqual(installed_stub.read_bytes(), stub.read_bytes())
         for name in LIBRARIES:
             self.assertFalse((destination / "libraries" / name / ".git").exists())
         self.assertFalse((problems / ".debug.out.source").exists())

@@ -170,3 +170,7 @@ uv run mypy . .vscode/bundle.py
 ```sh
 uv run python -m unittest discover -s tests -v
 ```
+
+`onlinejudge_template` と `onlinejudge_verify` は `py.typed` を提供していないため、テンプレートとライブラリの展開処理が使う API の型を `typings/` に定義している。
+その API の使い方や依存先のバージョンを変更した場合は、型スタブと依存先の実装が一致していることを確認する。
+インストーラは `typings/` もワークスペースにコピーする。
