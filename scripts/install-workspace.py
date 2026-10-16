@@ -150,6 +150,7 @@ def copy_item(src: pathlib.Path, dst: pathlib.Path) -> None:
                 "test",
                 "*.out",
                 "*.bundle.cpp",
+                ".bundle-sources.json",
             ),
         )
     else:
@@ -436,6 +437,21 @@ def main() -> None:
     # ファイル一式のコピー
     for name in RUNTIME_ITEMS:
         copy_item(source_root / name, workspace_root / name)
+
+    # 配布先には .git がないため、コミット中のファイルのハッシュを別に保存する。
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(source_root / ".vscode/bundle.py"),
+                "--write-manifest",
+                str(workspace_root / "libraries/.bundle-sources.json"),
+            ],
+            cwd=source_root,
+            check=True,
+        )
+    except subprocess.CalledProcessError as error:
+        raise SystemExit("error: failed to export library sources") from error
 
     # CPython の仮想環境を uv のキャッシュ内に作成・同期
     sync_workspace_environment(workspace_root)
