@@ -87,6 +87,48 @@ cd ../..
 
 ただし、独自に編集していた設定ファイルがあればそれは上書きされることに注意。
 
+## ライブラリを展開して出典の URL を付ける
+
+通常ビルドとデバッグビルドは `.vscode/bundle.py` を通して `oj-bundle` を実行する。
+手動で実行する場合は、ワークスペースのルートで以下のコマンドを使う。
+
+```sh
+uv run python .vscode/bundle.py problems/example/main.cpp
+uv run python .vscode/bundle.py problems/example/main.cpp -o submission.cpp
+```
+
+`-o` を省略すると、入力と同じディレクトリに `main.bundle.cpp` を生成する。
+実際に展開したファイルの URL は、依存先も含めて、出力の先頭にコメントとして一度ずつ記載する。
+展開に失敗した場合や出典を確認できない場合は、非ゼロで終了し、既存の出力を上書きしない。
+
+対象は以下の 4 ライブラリに固定し、この順序で `-I` を渡す。
+
+| 配置先 | URL の基点 |
+| --- | --- |
+| `libraries/ei1333` | <https://github.com/ei1333/library> |
+| `libraries/nyaan` | <https://github.com/NotLeonian/Nyaan-Library> |
+| `libraries/suisen` | <https://github.com/NotLeonian/cp-library-cpp> |
+| `libraries/niche-library` | <https://github.com/NotLeonian/NicheLibrary> |
+
+URL は `https://github.com/<owner>/<repo>/blob/<コミットSHA>/<ファイルのパス>` とする。
+`oj-bundle` と同じ展開処理を使い、各ファイルを読み込む際にパスを記録する。
+同名のヘッダがある場合も、実際に読み込んだファイルのパスで区別する。
+別のヘッダを読み込むだけのファイルも記録し、URL の添付と内容の照合を行う。
+ACL、標準ライブラリ、`precompile.hpp` の `#include` は展開せずに残す。
+4 ライブラリ以外のローカルヘッダは従来どおり展開するが、URL は自動で付けない。
+
+元リポジトリでは各ライブラリの `HEAD` と、使用したファイルの内容を照合する。
+インストーラは `.git` をコピーしないため、配布先の `libraries/.bundle-sources.json` に
+各ライブラリのコミット SHA と、コミット中の各ファイルの SHA-256 を保存する。
+配布先ではこの記録と照合し、変更されたファイルや、コミットに含まれていないファイルを使った場合はエラーにする。
+再インストールで古いファイルが残っていても、現在の記録に含まれていなければ使用できない。
+変更したライブラリを使う場合は、公開するコミットに変更を含め、ワークスペースを再インストールする。
+
+[AtCoder生成AI対策ルール（20261014版）](https://info.atcoder.jp/entry/llm-rules-ja)に対応するため、
+コードの作成に生成 AI を利用したかどうかにかかわらず、対象のライブラリには URL を付ける。
+使用するコミットは、コンテスト開始前に上記の公開リポジトリで閲覧できるようにしておく。
+スクリプトは通常の展開ではネットワークに接続せず、公開された時期は判定しない。
+
 ## Tips
 
 ### 複数のライブラリの相対パスが衝突している場合
@@ -116,12 +158,19 @@ Luzhiled's Library と Nyaan's Library の `geometry/` カテゴリ内の一部�
 Python ソースコードのフォーマットと静的検査には以下のコマンドを使用できる。
 
 ```sh
-uv run ruff format .
-uv run ruff check .
-uv run pyright
-uv run mypy .
+uv run ruff format . .vscode/bundle.py
+uv run ruff check . .vscode/bundle.py
+uv run pyright . .vscode/bundle.py
+uv run mypy . .vscode/bundle.py
 ```
 
-`onlinejudge_template` は `py.typed` を提供していないため、テンプレートが使う API の型を `typings/` に定義している。
+ライブラリの展開と出典の照合をテストするには、以下のコマンドを実行する。
+テストには Git と g++ が必要で、外部のライブラリをダウンロードする必要はない。
+
+```sh
+uv run python -m unittest discover -s tests -v
+```
+
+`onlinejudge_template` と `onlinejudge_verify` は `py.typed` を提供していないため、テンプレートとライブラリの展開処理が使う API の型を `typings/` に定義している。
 その API の使い方や依存先のバージョンを変更した場合は、型スタブと依存先の実装が一致していることを確認する。
 インストーラは `typings/` もワークスペースにコピーする。

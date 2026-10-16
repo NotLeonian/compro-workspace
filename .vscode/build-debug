@@ -132,13 +132,7 @@ cd "$workspace_root"
 
 clang-format -i -style=file "$source"
 
-CXX="$workspace_root/.vscode/g++-for-oj-bundle" \
-	uv run oj-bundle \
-		-I "$workspace_root/libraries/ei1333" \
-		-I "$workspace_root/libraries/nyaan" \
-		-I "$workspace_root/libraries/suisen" \
-		-I "$workspace_root/libraries/niche-library" \
-		"$source" > "$bundle"
+uv run python "$workspace_root/.vscode/bundle.py" "$source" -o "$bundle"
 
 g++ \
 	-o "$out" \
