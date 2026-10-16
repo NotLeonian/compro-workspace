@@ -22,6 +22,7 @@ RUNTIME_ITEMS = [
     "uv.lock",
     "libraries",
     "templates",
+    "typings",
 ]
 
 MAKO_MODULE_START = "<%!"
