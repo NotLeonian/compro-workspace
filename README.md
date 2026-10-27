@@ -158,10 +158,11 @@ Luzhiled's Library と Nyaan's Library の `geometry/` カテゴリ内の一部�
 Python ソースコードのフォーマットと静的検査には以下のコマンドを使用できる。
 
 ```sh
-uv run ruff format . .vscode/bundle.py
-uv run ruff check . .vscode/bundle.py
-uv run pyright . .vscode/bundle.py
-uv run mypy . .vscode/bundle.py
+PYTHON_CHECK_PATHS=". .vscode/bundle.py .github/scripts/check_uv_lock_revision.py"
+uv run ruff format $PYTHON_CHECK_PATHS
+uv run ruff check $PYTHON_CHECK_PATHS
+uv run pyright $PYTHON_CHECK_PATHS
+uv run mypy $PYTHON_CHECK_PATHS
 ```
 
 ライブラリの展開と出典の照合をテストするには、以下のコマンドを実行する。
@@ -174,3 +175,10 @@ uv run python -m unittest discover -s tests -v
 `onlinejudge_template` と `onlinejudge_verify` は `py.typed` を提供していないため、テンプレートとライブラリの展開処理が使う API の型を `typings/` に定義している。
 その API の使い方や依存先のバージョンを変更した場合は、型スタブと依存先の実装が一致していることを確認する。
 インストーラは `typings/` もワークスペースにコピーする。
+
+### uv.lock の更新方針
+
+`uv.lock` のリビジョン番号は、バージョン番号が上がる場合を除いて下げないこと。
+バージョン番号を下げる変更も認めない。
+
+この方針に反する変更の場合、CI は失敗となる。

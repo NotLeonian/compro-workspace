@@ -10,8 +10,15 @@ jobs:
   python-checks:
     name: Python checks
     runs-on: ubuntu-latest
+    env:
+      PYTHON_CHECK_PATHS: >-
+        .
+        .vscode/bundle.py
+        .github/scripts/check_uv_lock_revision.py
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v10.3.1
         with:
           version: "0.12.0"
@@ -21,12 +28,16 @@ jobs:
           uv python install
           uv sync --locked
       - name: Ruff format
-        run: uv run --locked ruff format --check . .vscode/bundle.py
+        run: uv run --locked ruff format --check $PYTHON_CHECK_PATHS
       - name: Ruff lint
-        run: uv run --locked ruff check . .vscode/bundle.py
+        run: uv run --locked ruff check $PYTHON_CHECK_PATHS
       - name: Pyright
-        run: uv run --locked pyright . .vscode/bundle.py
+        run: uv run --locked pyright $PYTHON_CHECK_PATHS
       - name: Mypy
-        run: uv run --no-sync mypy . .vscode/bundle.py
+        run: uv run --no-sync mypy $PYTHON_CHECK_PATHS
       - name: Bundle tests
         run: uv run --locked python -m unittest discover -s tests -v
+      - name: Check uv.lock revision
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: uv run --locked python .github/scripts/check_uv_lock_revision.py
