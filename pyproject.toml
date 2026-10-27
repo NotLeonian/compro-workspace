@@ -1,9 +1,9 @@
 [project]
 name = "my-compro-workspace"
-version = "0.2.0"
+version = "0.3.0"
 description = "My C++ workspace for competitive programming"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "acl-cpp-python>=0.6.2",
     "pulp>=3.3.2",
@@ -30,7 +30,7 @@ exclude = [
     "^libraries/nyaan(?:/|$)",
     "^libraries/suisen(?:/|$)",
 ]
-python_version = "3.10"
+python_version = "3.11"
 
 [tool.pyright]
 exclude = [
@@ -44,7 +44,7 @@ exclude = [
     "libraries/nyaan/**",
     "libraries/suisen/**",
 ]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 
 [tool.ruff]
 extend-exclude = [
