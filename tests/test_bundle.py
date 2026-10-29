@@ -632,7 +632,10 @@ class BundleTests(unittest.TestCase):
                 result = generate(filename, mode)
                 self.assert_success(result)
                 code = result.stdout.decode()
-                self.assertTrue(code.startswith(expected + "\n"), code[:200])
+                self.assertTrue(
+                    code.startswith(expected + "\n"),
+                    result.stderr.decode(errors="replace") + "\n" + code[:2000],
+                )
                 self.assertEqual(code.count(expected), 1)
                 if mode == "input":
                     self.assertIn("::in(n);", code)
@@ -659,7 +662,12 @@ class BundleTests(unittest.TestCase):
         installed.write_text(updated, encoding="utf-8")
         result = generate("main.cpp", "input")
         self.assert_success(result)
-        self.assertTrue(result.stdout.decode().startswith(expected + "\n"))
+        self.assertTrue(
+            result.stdout.decode().startswith(expected + "\n"),
+            result.stderr.decode(errors="replace")
+            + "\n"
+            + result.stdout.decode(errors="replace")[:2000],
+        )
         self.assertIn("// newer template", result.stdout.decode())
 
         self.assert_success(self.run_installer(destination, environment))
