@@ -176,6 +176,15 @@ class BundleTests(unittest.TestCase):
         self.assertEqual(self.output.read_text(), "previous output\n")
         self.assertEqual(list(self.output.parent.glob("*.tmp")), [])
 
+    def assert_bundle_references(self, *urls: str) -> str:
+        self.output.write_text("previous output\n", encoding="utf-8")
+        self.assert_success(self.run_script(str(self.source)))
+        code = self.output.read_text()
+        for url in urls:
+            self.assertEqual(code.splitlines().count(f"// {url}"), 1)
+        self.assertEqual(list(self.output.parent.glob("*.tmp")), [])
+        return code
+
     def test_git_sources_include_dependencies_and_compile(self) -> None:
         self.assert_success(self.run_script(str(self.source)))
         code = self.output.read_text()
@@ -277,31 +286,59 @@ class BundleTests(unittest.TestCase):
                     )
                     self.assertEqual(lines.count(url), 1)
 
-    def test_modified_include_only_header_preserves_output(self) -> None:
-        self.use_include_only_header()
+    def test_modified_include_only_header_keeps_original_and_dependency_urls(
+        self,
+    ) -> None:
+        commit = self.use_include_only_header()
         umbrella = self.root / "libraries/niche-library/umbrella.hpp"
         umbrella.write_text('#include "alternative.hpp"\n', encoding="utf-8")
-        self.assert_bundle_error("source differs from commit")
-        self.export_and_remove_git()
-        self.assert_bundle_error("source differs from commit")
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                if installed:
+                    self.export_and_remove_git()
+                code = self.assert_bundle_references(
+                    *(
+                        f"{LIBRARIES['niche-library']}/blob/{commit}/{name}"
+                        for name in ("umbrella.hpp", "alternative.hpp")
+                    )
+                )
+                self.assertIn("niche_value = 5", code)
 
-    def test_untracked_include_only_header_preserves_output(self) -> None:
+    def test_untracked_include_only_header_keeps_dependency_urls(self) -> None:
         umbrella = self.root / "libraries/niche-library/umbrella.hpp"
         umbrella.write_text('#include "value.hpp"\n', encoding="utf-8")
         self.source.write_text(
             SOURCE.replace('#include "value.hpp"', '#include "umbrella.hpp"'),
             encoding="utf-8",
         )
-        self.assert_bundle_error("source is absent from commit")
-        self.export_and_remove_git()
-        self.assert_bundle_error("source is absent from commit")
+        commit = self.commits["niche-library"]
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                if installed:
+                    self.export_and_remove_git()
+                code = self.assert_bundle_references(
+                    f"{LIBRARIES['niche-library']}/blob/{commit}/value.hpp",
+                )
+                self.assertNotIn(f"/blob/{commit}/umbrella.hpp", code)
+                self.assertNotIn(f"{LIBRARIES['niche-library']}/tree/", code)
 
-    def test_stale_include_only_header_preserves_output(self) -> None:
+    def test_stale_include_only_headers_get_no_urls_but_keep_dependency_urls(
+        self,
+    ) -> None:
         self.use_include_only_header()
-        commit_files(self.root / "libraries/niche-library", HEADERS["niche-library"])
-        self.assert_bundle_error("source is absent from commit")
-        self.export_and_remove_git()
-        self.assert_bundle_error("source is absent from commit")
+        commit = commit_files(
+            self.root / "libraries/niche-library", HEADERS["niche-library"]
+        )
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                if installed:
+                    self.export_and_remove_git()
+                code = self.assert_bundle_references(
+                    f"{LIBRARIES['niche-library']}/blob/{commit}/value.hpp",
+                )
+                self.assertNotIn(f"{LIBRARIES['niche-library']}/tree/", code)
+                for filename in ("umbrella.hpp", "nested.hpp"):
+                    self.assertNotIn(f"/blob/{commit}/{filename}", code)
 
     def test_output_cannot_overwrite_include_only_input(self) -> None:
         self.use_include_only_header()
@@ -312,27 +349,55 @@ class BundleTests(unittest.TestCase):
         self.assertIn("output must differ", result.stderr.decode())
         self.assertEqual(umbrella.read_bytes(), original)
 
-    def test_modified_git_header_preserves_output(self) -> None:
+    def test_modified_git_header_keeps_original_url(self) -> None:
         path = self.root / "libraries/ei1333/geometry/detail/value.hpp"
         path.write_text("inline constexpr int detail_value = 9;\n", encoding="utf-8")
-        self.assert_bundle_error("source differs from commit")
+        code = self.assert_bundle_references(
+            f"{LIBRARIES['ei1333']}/blob/{self.commits['ei1333']}/geometry/detail/value.hpp"
+        )
+        self.assertIn("detail_value = 9", code)
 
-    def test_modified_installed_header_preserves_output(self) -> None:
+    def test_modified_installed_header_keeps_original_url(self) -> None:
         self.export_and_remove_git()
         path = self.root / "libraries/niche-library/value.hpp"
         path.write_text("inline constexpr int niche_value = 9;\n", encoding="utf-8")
-        self.assert_bundle_error("source differs from commit")
+        code = self.assert_bundle_references(
+            f"{LIBRARIES['niche-library']}/blob/{self.commits['niche-library']}/value.hpp"
+        )
+        self.assertIn("niche_value = 9", code)
 
-    def test_manifest_hashes_come_from_commit(self) -> None:
+    def test_manifest_paths_come_from_commit_without_hashing_local_changes(
+        self,
+    ) -> None:
         path = self.root / "libraries/niche-library/value.hpp"
         path.write_text("inline constexpr int niche_value = 9;\n", encoding="utf-8")
+        (path.parent / "untracked.hpp").write_text(
+            "// local header\n", encoding="utf-8"
+        )
         self.export_and_remove_git()
         data = json.loads(self.manifest.read_text())
-        self.assertEqual(
-            data["libraries"]["niche-library"]["files"]["value.hpp"],
-            hashlib.sha256(HEADERS["niche-library"]["value.hpp"].encode()).hexdigest(),
+        self.assertEqual(data["version"], 2)
+        self.assertEqual(data["libraries"]["niche-library"]["files"], ["value.hpp"])
+        self.assert_bundle_references(
+            f"{LIBRARIES['niche-library']}/blob/{self.commits['niche-library']}/value.hpp"
         )
-        self.assert_bundle_error("source differs from commit")
+
+    def test_legacy_manifest_hashes_do_not_reject_local_changes(self) -> None:
+        self.export_and_remove_git()
+        data = json.loads(self.manifest.read_text())
+        data["version"] = 1
+        for name, entry in data["libraries"].items():
+            entry["files"] = {
+                filename: hashlib.sha256(HEADERS[name][filename].encode()).hexdigest()
+                for filename in entry["files"]
+            }
+        self.manifest.write_text(json.dumps(data), encoding="utf-8")
+        path = self.root / "libraries/niche-library/value.hpp"
+        path.write_text("inline constexpr int niche_value = 9;\n", encoding="utf-8")
+        code = self.assert_bundle_references(
+            f"{LIBRARIES['niche-library']}/blob/{self.commits['niche-library']}/value.hpp"
+        )
+        self.assertIn("niche_value = 9", code)
 
     def test_unused_changes_do_not_block_bundle(self) -> None:
         path = self.root / "libraries/ei1333/unused.hpp"
@@ -343,21 +408,51 @@ class BundleTests(unittest.TestCase):
         (self.root / "libraries/niche-library/value.hpp").unlink()
         self.assert_bundle_error("oj-bundle failed")
 
-    def test_untracked_header_preserves_output(self) -> None:
+    def test_untracked_header_gets_no_url_but_keeps_existing_urls(self) -> None:
         path = self.root / "libraries/niche-library/untracked.hpp"
         path.write_text(
             "#pragma once\ninline constexpr int untracked_value = 0;\n",
             encoding="utf-8",
         )
         self.source.write_text(SOURCE + '#include "untracked.hpp"\n', encoding="utf-8")
-        self.assert_bundle_error("source is absent from commit")
+        commit = self.commits["niche-library"]
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                if installed:
+                    self.export_and_remove_git()
+                code = self.assert_bundle_references(
+                    f"{LIBRARIES['niche-library']}/blob/{commit}/value.hpp",
+                )
+                self.assertIn("untracked_value = 0", code)
+                self.assertNotIn(f"/blob/{commit}/untracked.hpp", code)
+                self.assertNotIn(f"{LIBRARIES['niche-library']}/tree/", code)
 
-    def test_stale_header_after_reinstall_is_rejected(self) -> None:
+    def test_untracked_header_without_committed_dependencies_gets_no_urls(self) -> None:
+        path = self.root / "libraries/niche-library/untracked.hpp"
+        path.write_text("inline constexpr int local_value = 7;\n", encoding="utf-8")
+        self.source.write_text(
+            '#include "untracked.hpp"\nint main() { return local_value; }\n',
+            encoding="utf-8",
+        )
+        for installed in (False, True):
+            with self.subTest(installed=installed):
+                if installed:
+                    self.export_and_remove_git()
+                code = self.assert_bundle_references()
+                self.assertIn("local_value = 7", code)
+                self.assertNotIn("// Library sources:", code)
+                self.assertNotIn("https://github.com/", code)
+
+    def test_stale_header_after_reinstall_gets_no_url(self) -> None:
         commit_files(
             self.root / "libraries/niche-library", {"replacement.hpp": "#pragma once\n"}
         )
         self.export_and_remove_git()
-        self.assert_bundle_error("source is absent from commit")
+        code = self.assert_bundle_references(
+            f"{LIBRARIES['ei1333']}/blob/{self.commits['ei1333']}/geometry/circle.hpp"
+        )
+        self.assertIn("niche_value = 4", code)
+        self.assertNotIn(LIBRARIES["niche-library"], code)
 
     def test_missing_or_invalid_manifest_preserves_output(self) -> None:
         self.export_and_remove_git()

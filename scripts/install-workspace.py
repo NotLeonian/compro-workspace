@@ -439,7 +439,7 @@ def main() -> None:
     for name in RUNTIME_ITEMS:
         copy_item(source_root / name, workspace_root / name)
 
-    # 配布先には .git がないため、コミット中のファイルのハッシュを別に保存する。
+    # 配布先には .git がないため、コミット SHA とファイルの一覧を別に保存する。
     try:
         subprocess.run(
             [
