@@ -76,6 +76,11 @@ cd ../..
 
 その後、問題を解くワークスペースのルートで `oj-prepare` またはそのラッパー `./scripts/ojp` を実行できる。
 
+提出用の C++ ソースコードのテンプレートは生成 AI を使用して作成しているため、生成する `main.cpp` と `naive.cpp` の先頭に出典の URL を付ける。
+URL は `https://github.com/NotLeonian/compro-workspace/blob/<コミットSHA>/templates/main.cpp` とし、
+コミット SHA はインストール時のこのリポジトリの `HEAD` に固定する。
+テンプレートを変更しても元の URL を付け、ライブラリを展開した後も残す。
+
 > [!CAUTION]
 > [.clang-format](.clang-format) と [libraries/precompile/.clang-format](libraries/precompile/.clang-format) は clang-format 20 で追加されたオプションを使用している。  
 > 使用する clang-format のバージョンは 20 以上にすること。
