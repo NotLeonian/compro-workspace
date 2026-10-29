@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -26,7 +25,7 @@ class BundleError(Exception):
 @dataclass(frozen=True)
 class Snapshot:
     commit: str
-    files: dict[str, str]
+    files: list[str]
 
 
 def git(root: Path, *args: str, input_data: bytes | None = None) -> bytes:
@@ -58,40 +57,20 @@ def git_snapshot(root: Path, paths: set[str] | None = None) -> Snapshot:
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise BundleError(f"invalid commit SHA in {root}")
 
-    blobs: dict[str, str] = {}
+    files: list[str] = []
     for entry in git(root, "ls-tree", "-rz", "--full-tree", commit).split(b"\0"):
         if not entry:
             continue
         metadata, filename = entry.split(b"\t", 1)
-        mode, kind, oid_bytes = metadata.split()
+        mode, kind, _oid = metadata.split()
         path = os.fsdecode(filename)
         if (
             mode in (b"100644", b"100755")
             and kind == b"blob"
             and (paths is None or path in paths)
         ):
-            blobs[path] = oid_bytes.decode()
-
-    hashes: dict[str, str] = {}
-    oids = sorted(set(blobs.values()))
-    if oids:
-        data = git(
-            root,
-            "cat-file",
-            "--batch",
-            input_data="".join(oid + "\n" for oid in oids).encode(),
-        )
-        offset = 0
-        for oid in oids:
-            end = data.index(b"\n", offset)
-            actual_oid, kind, size_text = data[offset:end].split()
-            size = int(size_text)
-            start = end + 1
-            if actual_oid.decode() != oid or kind != b"blob":
-                raise BundleError(f"unexpected Git object in {root}: {oid}")
-            hashes[oid] = hashlib.sha256(data[start : start + size]).hexdigest()
-            offset = start + size + 1
-    return Snapshot(commit, {path: hashes[oid] for path, oid in blobs.items()})
+            files.append(path)
+    return Snapshot(commit, files)
 
 
 def read_manifest(root: Path) -> dict[str, Snapshot]:
@@ -102,7 +81,7 @@ def read_manifest(root: Path) -> dict[str, Snapshot]:
         raise BundleError(
             f"cannot read {path}; reinstall the workspace: {error}"
         ) from error
-    if not isinstance(data, dict) or data.get("version") != 1:
+    if not isinstance(data, dict) or data.get("version") not in (1, 2):
         raise BundleError(
             f"unsupported source manifest: {path}; reinstall the workspace"
         )
@@ -116,22 +95,17 @@ def read_manifest(root: Path) -> dict[str, Snapshot]:
             raise BundleError(f"invalid sources for {name} in {path}")
         commit = entry.get("commit")
         files = entry.get("files")
+        # Version 1 stored file hashes; only the paths are needed for source URLs.
+        if data["version"] == 1 and isinstance(files, dict):
+            files = list(files)
         if (
             not isinstance(commit, str)
             or not re.fullmatch(r"[0-9a-f]{40}", commit)
-            or not isinstance(files, dict)
+            or not isinstance(files, list)
+            or any(not isinstance(filename, str) for filename in files)
         ):
             raise BundleError(f"invalid sources for {name} in {path}")
-        checked_files: dict[str, str] = {}
-        for filename, digest in files.items():
-            if (
-                not isinstance(filename, str)
-                or not isinstance(digest, str)
-                or not re.fullmatch(r"[0-9a-f]{64}", digest)
-            ):
-                raise BundleError(f"invalid file hash for {name} in {path}")
-            checked_files[filename] = digest
-        snapshots[name] = Snapshot(commit, checked_files)
+        snapshots[name] = Snapshot(commit, files)
     return snapshots
 
 
@@ -155,7 +129,7 @@ def write_manifest(root: Path, destination: Path) -> None:
         for name in LIBRARIES
     }
     content = json.dumps(
-        {"version": 1, "libraries": snapshots}, indent=2, sort_keys=True
+        {"version": 2, "libraries": snapshots}, indent=2, sort_keys=True
     )
     atomic_write(destination, (content + "\n").encode())
 
@@ -214,21 +188,12 @@ def add_sources(root: Path, code: bytes, paths: set[Path]) -> bytes:
             if manifest is None:
                 manifest = read_manifest(root)
             snapshot = manifest[name]
+        known_files = set(snapshot.files)
         for relative in used:
-            expected = snapshot.files.get(relative)
-            if expected is None:
-                raise BundleError(
-                    f"source is absent from commit {snapshot.commit}: {name}/{relative}"
+            if relative in known_files:
+                urls.append(
+                    f"{repository}/blob/{snapshot.commit}/{quote(relative, safe='/')}"
                 )
-            actual = hashlib.sha256((library_root / relative).read_bytes()).hexdigest()
-            if actual != expected:
-                raise BundleError(
-                    f"source differs from commit {snapshot.commit}: {name}/{relative}; "
-                    "restore the published version or publish and install a new commit"
-                )
-            urls.append(
-                f"{repository}/blob/{snapshot.commit}/{quote(relative, safe='/')}"
-            )
     if not urls:
         return code
     comments = "// Library sources:\n" + "".join(f"// {url}\n" for url in urls) + "\n"
