@@ -56,6 +56,33 @@ int main() {
 }
 """
 
+GENERATE_TEMPLATE = """\
+import sys
+
+from onlinejudge_template.generator._main import run
+from onlinejudge_template.types import (
+    AnalyzerResources, AnalyzerResult, ItemNode, VarDecl, VarName, VarType,
+)
+
+analyzed = AnalyzerResult(
+    resources=AnalyzerResources(None, None, None, None, None),
+    input_format=None,
+    input_variables=None,
+    output_format=None,
+    output_variables=None,
+    constants={},
+    output_type=None,
+    topcoder_class_definition=None,
+)
+if sys.argv[2] == "input":
+    name = VarName("n")
+    analyzed = analyzed._replace(
+        input_format=ItemNode(name=name),
+        input_variables={name: VarDecl(name, VarType.ValueInt, [], [], set())},
+    )
+sys.stdout.buffer.write(run(analyzed, template_file=sys.argv[1]))
+"""
+
 
 def git(root: Path, *args: str, input_data: bytes | None = None) -> bytes:
     return subprocess.run(
@@ -489,7 +516,7 @@ class BundleTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(header.read_text(), HEADERS["nyaan"]["geometry/circle.hpp"])
 
-    def test_installer_exports_sources_to_workspace_without_git(self) -> None:
+    def prepare_installer(self) -> tuple[Path, dict[str, str], str]:
         scripts = self.root / "scripts"
         scripts.mkdir()
         shutil.copy2(REPOSITORY / "scripts/install-workspace.py", scripts)
@@ -504,6 +531,11 @@ class BundleTests(unittest.TestCase):
             shutil.copy2(REPOSITORY / filename, self.root / filename)
         shutil.copytree(REPOSITORY / "templates", self.root / "templates")
         shutil.copytree(REPOSITORY / "typings", self.root / "typings")
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        commit = commit_files(
+            self.root,
+            {"templates/main.cpp": (self.root / "templates/main.cpp").read_text()},
+        )
         for filename in ("build-debug", "compro-shell"):
             shutil.copy2(
                 REPOSITORY / ".vscode" / filename, self.root / ".vscode" / filename
@@ -523,13 +555,26 @@ class BundleTests(unittest.TestCase):
         environment = os.environ.copy()
         environment["PATH"] = str(commands) + os.pathsep + environment["PATH"]
         environment["XDG_CONFIG_HOME"] = str(self.root.parent / "config")
-        result = subprocess.run(
-            [sys.executable, str(scripts / "install-workspace.py"), str(destination)],
+        return destination, environment, commit
+
+    def run_installer(
+        self, destination: Path, environment: dict[str, str]
+    ) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            [
+                sys.executable,
+                str(self.root / "scripts/install-workspace.py"),
+                str(destination),
+                "--no-backup",
+            ],
             env=environment,
             capture_output=True,
             check=False,
         )
-        self.assert_success(result)
+
+    def test_installer_exports_sources_to_workspace_without_git(self) -> None:
+        destination, environment, _commit = self.prepare_installer()
+        self.assert_success(self.run_installer(destination, environment))
         self.assertTrue((destination / "libraries/.bundle-sources.json").is_file())
         for stub in (REPOSITORY / "typings").rglob("*.pyi"):
             installed_stub = (
@@ -538,6 +583,7 @@ class BundleTests(unittest.TestCase):
             self.assertEqual(installed_stub.read_bytes(), stub.read_bytes())
         for name in LIBRARIES:
             self.assertFalse((destination / "libraries" / name / ".git").exists())
+        problems = destination / "problems"
         self.assertFalse((problems / ".debug.out.source").exists())
         self.assertFalse((problems / ".debug.out.source.sha256").exists())
         self.assertTrue((problems / "debug.out").is_file())
@@ -552,6 +598,122 @@ class BundleTests(unittest.TestCase):
         self.assertIn(
             "// Library sources:", source.with_suffix(".bundle.cpp").read_text()
         )
+
+    def test_generated_templates_pin_commit_and_keep_original_url(self) -> None:
+        import tomllib
+
+        destination, environment, commit = self.prepare_installer()
+        self.assert_success(self.run_installer(destination, environment))
+        self.assertFalse((destination / ".git").exists())
+        expected = (
+            "// Template source: https://github.com/NotLeonian/compro-workspace/blob/"
+            f"{commit}/templates/main.cpp"
+        )
+        config_dir = Path(environment["XDG_CONFIG_HOME"]) / "online-judge-tools"
+        config = tomllib.loads((config_dir / "prepare.config.toml").read_text())
+
+        # A later commit in the source checkout must not affect this installation.
+        template = self.root / "templates/main.cpp"
+        updated = template.read_text() + "\n// newer template\n"
+        new_commit = commit_files(self.root, {"templates/main.cpp": updated})
+        self.assertNotEqual(commit, new_commit)
+
+        def generate(filename: str, mode: str) -> subprocess.CompletedProcess[bytes]:
+            adapter = config_dir / "template" / config["templates"][filename]
+            return subprocess.run(
+                [sys.executable, "-c", GENERATE_TEMPLATE, str(adapter), mode],
+                env=environment,
+                capture_output=True,
+                check=False,
+            )
+
+        for filename, mode in (("main.cpp", "input"), ("naive.cpp", "fallback")):
+            with self.subTest(filename=filename):
+                result = generate(filename, mode)
+                self.assert_success(result)
+                code = result.stdout.decode()
+                self.assertTrue(
+                    code.startswith(expected + "\n"),
+                    result.stderr.decode(errors="replace") + "\n" + code[:2000],
+                )
+                self.assertEqual(code.count(expected), 1)
+                if mode == "input":
+                    self.assertIn("::in(n);", code)
+                else:
+                    self.assertIn("failed to analyze input format", code)
+                    code += '\n#include "value.hpp"\n'
+                source = destination / "problems" / filename
+                source.write_text(code, encoding="utf-8")
+                bundled = subprocess.run(
+                    [
+                        sys.executable,
+                        str(destination / ".vscode/bundle.py"),
+                        str(source),
+                    ],
+                    capture_output=True,
+                    check=False,
+                )
+                self.assert_success(bundled)
+                self.assertEqual(
+                    source.with_suffix(".bundle.cpp").read_text().count(expected), 1
+                )
+
+        installed = destination / "templates/main.cpp"
+        installed.write_text(updated, encoding="utf-8")
+        result = generate("main.cpp", "input")
+        self.assert_success(result)
+        self.assertTrue(
+            result.stdout.decode().startswith(expected + "\n"),
+            result.stderr.decode(errors="replace")
+            + "\n"
+            + result.stdout.decode(errors="replace")[:2000],
+        )
+        self.assertIn("// newer template", result.stdout.decode())
+
+        self.assert_success(self.run_installer(destination, environment))
+        result = generate("main.cpp", "input")
+        self.assert_success(result)
+        self.assertIn(f"/blob/{new_commit}/templates/main.cpp", result.stdout.decode())
+        self.assertIn("// newer template", result.stdout.decode())
+
+    def test_uncommitted_template_keeps_original_url_when_generating(self) -> None:
+        destination, environment, commit = self.prepare_installer()
+        template = self.root / "templates/main.cpp"
+        template.write_text(
+            template.read_text() + "\n// local change\n", encoding="utf-8"
+        )
+        self.assert_success(self.run_installer(destination, environment))
+        adapter = (
+            Path(environment["XDG_CONFIG_HOME"])
+            / "online-judge-tools/template/main.cpp"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", GENERATE_TEMPLATE, str(adapter), "fallback"],
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+        self.assert_success(result)
+        code = result.stdout.decode()
+        self.assertIn(f"/blob/{commit}/templates/main.cpp", code)
+        self.assertIn("// local change", code)
+
+    def test_installer_requires_template_in_git_commit(self) -> None:
+        destination, environment, _commit = self.prepare_installer()
+        commit_files(self.root, {"README.md": "fixture without a committed template\n"})
+        for missing_git in (False, True):
+            with self.subTest(missing_git=missing_git):
+                if missing_git:
+                    shutil.rmtree(self.root / ".git")
+                result = self.run_installer(destination, environment)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(
+                    "Git metadata is missing"
+                    if missing_git
+                    else "cannot read committed templates/main.cpp",
+                    result.stderr.decode(),
+                )
+                self.assertFalse((destination / "templates").exists())
 
     @unittest.skipUnless(shutil.which("clang-format"), "clang-format is not installed")
     def test_debug_build_in_installed_workspace(self) -> None:

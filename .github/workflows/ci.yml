@@ -27,6 +27,20 @@ jobs:
         run: |
           uv python install
           uv sync --locked
+      - name: Install clang-format 20
+        working-directory: ${{ runner.temp }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget lsb-release ca-certificates gnupg
+          wget -O llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 20
+          sudo apt-get install -y clang-format-20
+          CF_BIN="$(command -v clang-format-20 || command -v clang-format)"
+          "$CF_BIN" --version
+          mkdir -p "$RUNNER_TEMP/clang-format-bin"
+          ln -s "$CF_BIN" "$RUNNER_TEMP/clang-format-bin/clang-format"
+          echo "$RUNNER_TEMP/clang-format-bin" >> "$GITHUB_PATH"
       - name: Ruff format
         run: uv run --locked ruff format --check $PYTHON_CHECK_PATHS
       - name: Ruff lint
@@ -36,7 +50,9 @@ jobs:
       - name: Mypy
         run: uv run --no-sync mypy $PYTHON_CHECK_PATHS
       - name: Bundle tests
-        run: uv run --locked python -m unittest discover -s tests -v
+        run: |
+          clang-format --version
+          uv run --locked python -m unittest discover -s tests -v
       - name: Check uv.lock revision
         env:
           BEFORE_SHA: ${{ github.event.before }}

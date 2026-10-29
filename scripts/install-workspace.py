@@ -5,6 +5,7 @@ import datetime as dt
 import json
 import os
 import pathlib
+import re
 import shutil
 import stat
 import subprocess
@@ -313,6 +314,49 @@ def build_bridge_template(mako_in_path: pathlib.Path, module_path: pathlib.Path)
     return f"{MAKO_MODULE_START}\n{module_code}%>\\{tail}"
 
 
+def read_template_commit(source_root: pathlib.Path) -> str:
+    if not (source_root / ".git").exists():
+        raise SystemExit(f"error: Git metadata is missing: {source_root}")
+
+    try:
+        commit = (
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(source_root),
+                    "rev-parse",
+                    "--verify",
+                    "HEAD^{commit}",
+                ],
+                capture_output=True,
+                check=True,
+            )
+            .stdout.decode()
+            .strip()
+        )
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            raise SystemExit(f"error: invalid commit SHA in {source_root}")
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(source_root),
+                "cat-file",
+                "-e",
+                f"{commit}:templates/main.cpp",
+            ],
+            capture_output=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise SystemExit(
+            f"error: cannot read committed templates/main.cpp in {source_root}"
+        ) from error
+
+    return commit
+
+
 DEBUG_BUILD_STAMP_NAMES = [
     ".debug.out.source",
     ".debug.out.source.sha256",
@@ -429,6 +473,8 @@ def main() -> None:
             )
         )
 
+    template_commit = read_template_commit(source_root)
+
     # 問題を解くワークスペースのルートディレクトリの作成
     workspace_root.mkdir(parents=True, exist_ok=True)
 
@@ -529,9 +575,10 @@ def main() -> None:
         if not mako_in_path.exists():
             raise SystemExit(f"error: missing template adapter: {mako_in_path}")
 
-        bridge_template = build_bridge_template(mako_in_path, mako_module_path).replace(
-            "__WORKSPACE_ROOT__",
-            workspace_root.as_posix(),
+        bridge_template = (
+            build_bridge_template(mako_in_path, mako_module_path)
+            .replace("__WORKSPACE_ROOT__", workspace_root.as_posix())
+            .replace("__TEMPLATE_COMMIT__", template_commit)
         )
         write_text(bridge_template_paths[template_name], bridge_template)
 

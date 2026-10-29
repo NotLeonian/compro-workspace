@@ -32,7 +32,19 @@ _normalize_for_testcase_signal = _utilities.normalize_for_testcase_signal
 _simple_expr = _utilities.simple_expr
 
 BASE_TEMPLATE = WORKSPACE_ROOT / "templates" / "main.cpp"
+BASE_TEMPLATE_COMMIT = "__TEMPLATE_COMMIT__"
+BASE_TEMPLATE_URL = (
+    "https://github.com/NotLeonian/compro-workspace/blob/"
+    f"{BASE_TEMPLATE_COMMIT}/templates/main.cpp"
+)
 CLANG_FORMAT = WORKSPACE_ROOT / ".clang-format"
+
+
+def _read_base_template() -> str:
+    return f"// Template source: {BASE_TEMPLATE_URL}\n\n" + BASE_TEMPLATE.read_text(
+        encoding="utf-8"
+    )
+
 
 _CASE_COUNT_NAMES = {
     "t",

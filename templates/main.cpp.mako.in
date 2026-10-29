@@ -27,7 +27,7 @@ else:
         hook.register_filter_command(["clang-format", "--style=file"], data=data)
 
 constants, generated_input, testcase_count_reader = _build_generated_parts(data, logger=logger)
-source = BASE_TEMPLATE.read_text(encoding="utf-8")
+source = _read_base_template()
 
 solve_body_lines = []
 if generated_input:
