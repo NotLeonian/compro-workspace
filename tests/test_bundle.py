@@ -150,7 +150,7 @@ class BundleTests(unittest.TestCase):
         cls.base_directory = tempfile.TemporaryDirectory(prefix="bundle-fixtures-")
         cls.base = Path(cls.base_directory.name)
         (cls.base / ".vscode").mkdir()
-        for filename in ("bundle.py", "g++-for-oj-bundle"):
+        for filename in ("bundle.py", "clang-format", "g++-for-oj-bundle"):
             shutil.copy2(
                 REPOSITORY / ".vscode" / filename, cls.base / ".vscode" / filename
             )
@@ -576,6 +576,7 @@ class BundleTests(unittest.TestCase):
         destination, environment, _commit = self.prepare_installer()
         self.assert_success(self.run_installer(destination, environment))
         self.assertTrue((destination / "libraries/.bundle-sources.json").is_file())
+        self.assertTrue(os.access(destination / ".vscode/clang-format", os.X_OK))
         for stub in (REPOSITORY / "typings").rglob("*.pyi"):
             installed_stub = (
                 destination / "typings" / stub.relative_to(REPOSITORY / "typings")
@@ -724,10 +725,19 @@ class BundleTests(unittest.TestCase):
         commands = self.root.parent / "commands"
         commands.mkdir()
         uv = commands / "uv"
-        # Delegate uv run to this interpreter without synchronizing an environment.
+        # Delegate uv run to installed tools without synchronizing an environment.
+        formatter = shutil.which("clang-format")
+        assert formatter is not None
         uv.write_text(
-            '#!/bin/sh\n[ "$1" = run ] && [ "$2" = python ] || exit 2\n'
-            'shift 2\nexec ' + shlex.quote(sys.executable) + ' "$@"\n',
+            '#!/bin/sh\n[ "$1" = run ] || exit 2\nshift\n'
+            'while [ "$#" -gt 0 ]; do\n'
+            '  case "$1" in\n'
+            '    --project|--group) shift 2 ;;\n'
+            '    --locked) shift ;;\n'
+            '    python) shift; exec ' + shlex.quote(sys.executable) + ' "$@" ;;\n'
+            '    clang-format) shift; exec ' + shlex.quote(formatter) + ' "$@" ;;\n'
+            '    *) exit 2 ;;\n'
+            '  esac\ndone\nexit 2\n',
             encoding="utf-8",
         )
         uv.chmod(0o755)
@@ -755,7 +765,48 @@ class BundleTests(unittest.TestCase):
         self.assert_success(result)
         self.assertIn("debug.out is up to date", result.stderr.decode())
 
-    @unittest.skipUnless(shutil.which("clang-format"), "clang-format is not installed")
+    def test_clang_format_uses_locked_workspace_from_another_project(self) -> None:
+        (self.root / "pyproject.toml").write_text(
+            '[project]\nname = "unrelated-project"\nversion = "0.0.0"\n'
+            'requires-python = ">=99"\n',
+            encoding="utf-8",
+        )
+        commands = self.root.parent / "commands"
+        commands.mkdir()
+        system_formatter = commands / "clang-format"
+        system_formatter.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+        system_formatter.chmod(0o755)
+        environment = os.environ.copy()
+        environment["PATH"] = str(commands) + os.pathsep + environment["PATH"]
+        formatter = str(REPOSITORY / ".vscode/clang-format")
+        version = subprocess.run(
+            [formatter, "--version"],
+            cwd=self.source.parent,
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+        self.assert_success(version)
+        self.assertRegex(version.stdout.decode(), r"clang-format version 20\.")
+        self.source.write_text("int main(){return 0;}\n", encoding="utf-8")
+        result = subprocess.run(
+            [
+                formatter,
+                "-i",
+                (
+                    "-style={BasedOnStyle: LLVM, IndentWidth: 4, "
+                    "AllowShortFunctionsOnASingleLine: None}"
+                ),
+                self.source.name,
+            ],
+            cwd=self.source.parent,
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+        self.assert_success(result)
+        self.assertEqual(self.source.read_text(), "int main() {\n    return 0;\n}\n")
+
     def test_urls_survive_removing_line_directives_and_formatting(self) -> None:
         self.assert_success(self.run_script(str(self.source)))
         original = self.output.read_text()
@@ -765,7 +816,10 @@ class BundleTests(unittest.TestCase):
             if not line.startswith("#line")
         )
         self.output.write_text(without_directives, encoding="utf-8")
-        subprocess.run(["clang-format", "-i", str(self.output)], check=True)
+        subprocess.run(
+            [str(REPOSITORY / ".vscode/clang-format"), "-i", str(self.output)],
+            check=True,
+        )
         formatted = self.output.read_text()
         for line in original.splitlines():
             if line.startswith("// https://"):

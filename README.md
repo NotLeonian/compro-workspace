@@ -183,3 +183,37 @@ uv run python -m unittest discover -s tests -v
 バージョン番号を下げる変更も認めない。
 
 この方針に反する変更の場合、CI は失敗となる。
+
+### C++ の開発ツール
+
+次のコマンドで、clang-format, clang-tidy, clangd, clangd-tidy をインストールできる。
+
+```sh
+uv sync --locked --group dev
+```
+
+clang-format, clang-tidy, clangd のメジャーバージョンは 20 に統一する。
+clangd-tidy は独自にバージョンが付けられている。
+各ツールのバージョンは [pyproject.toml](pyproject.toml) と [uv.lock](uv.lock) で管理している。
+C++ のコンパイラと標準ライブラリは別途用意すること。
+
+clang-format は [.vscode/clang-format](.vscode/clang-format) を通して実行する。
+通常ビルド、デバッグビルド、Bundle tests においてもこのラッパーを使用する。
+実行時のディレクトリによらず、ラッパーを配置したワークスペースで uv が管理する仮想環境と `uv.lock` を使用する。
+
+```sh
+.vscode/clang-format --version
+.vscode/clang-format -i -style=file templates/main.cpp
+```
+
+clang-tidy と clangd-tidy は、対象のファイルを指定して実行できる。
+[compile_flags.txt](compile_flags.txt) に記載した C++23 などのオプションを使用する。
+
+```sh
+uv run --locked clang-tidy templates/main.cpp
+uv run --locked clangd-tidy templates/main.cpp
+```
+
+clangd-tidy は clangd を使って診断を取得する。
+clang-tidy の一部の検査と `--fix` には対応していないため、対応していない検査や自動修正には clang-tidy を使用すること。
+エディタでも uv が管理する clangd を使うように設定すると、同じバージョンで診断を確認できる。

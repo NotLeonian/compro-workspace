@@ -505,9 +505,10 @@ def main() -> None:
 
     # コピーされたスクリプトへの実行権限の付与
     for relpath in [
-        ".vscode/g++-for-oj-bundle",
-        ".vscode/compro-shell",
         ".vscode/build-debug",
+        ".vscode/clang-format",
+        ".vscode/compro-shell",
+        ".vscode/g++-for-oj-bundle",
     ]:
         make_executable(workspace_root / relpath)
 
