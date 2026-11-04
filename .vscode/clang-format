@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+exec uv run --project "$workspace_root" --locked --group dev clang-format "$@"

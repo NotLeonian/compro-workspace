@@ -197,6 +197,15 @@ clangd-tidy は独自にバージョンが付けられている。
 各ツールのバージョンは [pyproject.toml](pyproject.toml) と [uv.lock](uv.lock) で管理している。
 C++ のコンパイラと標準ライブラリは別途用意すること。
 
+clang-format は [.vscode/clang-format](.vscode/clang-format) を通して実行する。
+通常ビルド、デバッグビルド、Bundle tests においてもこのラッパーを使用する。
+実行時のディレクトリによらず、ラッパーを配置したワークスペースで uv が管理する仮想環境と `uv.lock` を使用する。
+
+```sh
+.vscode/clang-format --version
+.vscode/clang-format -i -style=file templates/main.cpp
+```
+
 clang-tidy と clangd-tidy は、対象のファイルを指定して実行できる。
 [compile_flags.txt](compile_flags.txt) に記載した C++23 などのオプションを使用する。
 

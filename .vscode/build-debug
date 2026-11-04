@@ -130,7 +130,7 @@ printf '  output = %s\n' "$out" >&2
 
 cd "$workspace_root"
 
-clang-format -i -style=file "$source"
+"$workspace_root/.vscode/clang-format" -i -style=file "$source"
 
 uv run python "$workspace_root/.vscode/bundle.py" "$source" -o "$bundle"
 
@@ -146,7 +146,7 @@ g++ \
 	"$bundle"
 
 sed -i '/^#line/d' "$bundle"
-clang-format -i -style=file "$bundle"
+"$workspace_root/.vscode/clang-format" -i -style=file "$bundle"
 
 post_hash="$(hash_file "$source")"
 

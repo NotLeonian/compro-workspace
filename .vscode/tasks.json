@@ -4,7 +4,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "clang-format -i -style=file \"${file}\" && uv run python \"${workspaceFolder}/.vscode/bundle.py\" \"${file}\" -o \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && g++ -o \"${fileDirname}/a.out\" -O3 -std=gnu++23 -I \"${workspaceFolder}/libraries/ac-library\" -I \"${workspaceFolder}/libraries/precompile\" -H \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && sed -i '/^#line/d' \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && clang-format -i -style=file \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\"",
+            "command": "\"${workspaceFolder}/.vscode/clang-format\" -i -style=file \"${file}\" && uv run python \"${workspaceFolder}/.vscode/bundle.py\" \"${file}\" -o \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && g++ -o \"${fileDirname}/a.out\" -O3 -std=gnu++23 -I \"${workspaceFolder}/libraries/ac-library\" -I \"${workspaceFolder}/libraries/precompile\" -H \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && sed -i '/^#line/d' \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\" && \"${workspaceFolder}/.vscode/clang-format\" -i -style=file \"${fileDirname}/${fileBasenameNoExtension}.bundle.cpp\"",
             "group": {
                 "kind": "build",
                 "isDefault": true

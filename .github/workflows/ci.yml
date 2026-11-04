@@ -37,7 +37,7 @@ jobs:
         run: uv run --no-sync mypy $PYTHON_CHECK_PATHS
       - name: Bundle tests
         run: |
-          clang-format --version
+          .vscode/clang-format --version
           uv run --locked python -m unittest discover -s tests -v
       - name: Check uv.lock revision
         env:
