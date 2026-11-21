@@ -530,8 +530,8 @@ def main() -> None:
             cd "$workspace_root"
 
             show_help() {
-                "$@" | sed \\
-                    -e '1s/^usage: oj-prepare /usage: ojp /' \\
+                "$@" | sed -E \\
+                    -e '1s/^usage: oj-prepare( |$)/usage: ojp\\1/' \\
                     -e '1,/^$/s/ url$/ {url | --atcoder CONTEST_ID}/'
                 printf '  %-22s%s\\n' '--atcoder CONTEST_ID' \\
                     'Use https://atcoder.jp/contests/CONTEST_ID as the URL.'

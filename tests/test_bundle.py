@@ -707,24 +707,28 @@ class BundleTests(unittest.TestCase):
             encoding="utf-8",
         )
         ojp = destination / "scripts/ojp"
-        for args in (
-            ("--help",),
-            ("-h",),
-            ("--verbose", "--help"),
-            ("-hv",),
-            ("-vvh",),
-            ("--hel",),
+        for args, columns in (
+            (("--help",), "80"),
+            (("--help",), "24"),
+            (("--help",), "23"),
+            (("--help",), "12"),
+            (("--help",), "1"),
+            (("-h",), "80"),
+            (("--verbose", "--help"), "80"),
+            (("-hv",), "80"),
+            (("-vvh",), "80"),
+            (("--hel",), "80"),
         ):
-            with self.subTest(args=args):
+            with self.subTest(args=args, columns=columns):
                 result = subprocess.run(
                     [str(ojp), *args],
                     cwd=self.root,
-                    env=environment,
+                    env={**environment, "COLUMNS": columns},
                     capture_output=True,
                     check=False,
                 )
                 self.assert_success(result)
-                self.assertTrue(result.stdout.startswith(b"usage: ojp "), result.stdout)
+                self.assertRegex(result.stdout.splitlines()[0], rb"^usage: ojp(?: |$)")
                 self.assertIn(b"{url | --atcoder CONTEST_ID}", result.stdout)
                 _, options = result.stdout.split(b"\noptions:\n", maxsplit=1)
                 self.assertIn(b"\n  --config-file", options)
