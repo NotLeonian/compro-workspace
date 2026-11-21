@@ -600,6 +600,140 @@ class BundleTests(unittest.TestCase):
             "// Library sources:", source.with_suffix(".bundle.cpp").read_text()
         )
 
+    def test_installed_ojp_atcoder_shorthand(self) -> None:
+        destination, environment, _commit = self.prepare_installer()
+        self.assert_success(self.run_installer(destination, environment))
+
+        uv = self.root.parent / "commands/uv"
+        uv.write_text(
+            "#!/bin/sh\nprintf '%s\\0' \"$(pwd -P)\" \"$@\"\n", encoding="utf-8"
+        )
+        ojp = destination / "scripts/ojp"
+
+        def run_ojp(*args: str) -> subprocess.CompletedProcess[bytes]:
+            return subprocess.run(
+                [str(ojp), *args],
+                cwd=self.root,
+                env=environment,
+                capture_output=True,
+                check=False,
+            )
+
+        url = "https://atcoder.jp/contests/abc400"
+        config_file = ("--config-file", "config with spaces.toml")
+        cookie = ("-c", "cookie with spaces.txt")
+        options = (*config_file, "--future-option")
+        other_url = "https://atcoder.jp/contests/abc401"
+        for args, expected in (
+            (("--atcoder", "abc400"), (url,)),
+            (("--atcoder=abc400",), (url,)),
+            (
+                ("--atcoder=abc-400_test",),
+                ("https://atcoder.jp/contests/abc-400_test",),
+            ),
+            (("--atcoder", "abc400", *options), (url, *options)),
+            (("--verbose", "--atcoder", "abc400"), ("--verbose", url)),
+            (
+                (*cookie, "--atcoder", "abc400", *config_file),
+                (*cookie, url, *config_file),
+            ),
+            ((*options, "--atcoder", "abc400"), (*options, url)),
+            ((url, *options), (url, *options)),
+            ((*options, url), (*options, url)),
+            (("--config-file", "--atcoder", url), ("--config-file", "--atcoder", url)),
+            (("-c", "--atcoder", url), ("-c", "--atcoder", url)),
+            (("-vc", "--atcoder", "abc400"), ("-vc", "--atcoder", "abc400")),
+            (("--cook", "--atcoder", "abc400"), ("--cook", "--atcoder", "abc400")),
+            (("--con", "--atcoder", "abc400"), ("--con", "--atcoder", "abc400")),
+            (("--cook", "--help", url), ("--cook", "--help", url)),
+            (("-vch", "--atcoder=abc400"), ("-vch", url)),
+            (("-vc", other_url, "--atcoder=abc400"), ("-vc", other_url, url)),
+            (("--con", other_url, "--atcoder=abc400"), ("--con", other_url, url)),
+            (("--", url), ("--", url)),
+            (("--", "--atcoder", "abc400"), ("--", "--atcoder", "abc400")),
+            (("--", "--atcoder=abc400"), ("--", "--atcoder=abc400")),
+            (("--", "--help"), ("--", "--help")),
+            (("--", "-h"), ("--", "-h")),
+            (("-c", "--", "--atcoder=abc400"), ("-c", "--", "--atcoder=abc400")),
+            ((), ()),
+        ):
+            with self.subTest(args=args):
+                result = run_ojp(*args)
+                self.assert_success(result)
+                self.assertEqual(
+                    os.fsdecode(result.stdout).split("\0"),
+                    [str(destination.resolve()), "run", "oj-prepare", *expected, ""],
+                )
+
+        missing_id = b"--atcoder requires a contest ID"
+        invalid_id = b"invalid AtCoder contest ID"
+        duplicate_id = b"--atcoder can only be specified once"
+        conflicting_url = b"specify either a URL or --atcoder, not both"
+        for invalid_args, message in (
+            (("--atcoder",), missing_id),
+            (("--atcoder", ""), missing_id),
+            (("--atcoder", "--verbose"), missing_id),
+            (("--atcoder=",), missing_id),
+            (("--atcoder", "abc400/tasks/abc400_a"), invalid_id),
+            (("--atcoder", "abc 400"), invalid_id),
+            (("--atcoder=abc400?x=1",), invalid_id),
+            (("--atcoder=-abc400",), invalid_id),
+            (
+                ("--atcoder", "abc400", "--verbose", "--atcoder", "abc401"),
+                duplicate_id,
+            ),
+            (("--atcoder", "abc400", "--atcoder=abc401"), duplicate_id),
+            (("--atcoder=abc400", "--atcoder", "abc401"), duplicate_id),
+            ((other_url, "--atcoder", "abc400"), conflicting_url),
+            (("--atcoder=abc400", other_url), conflicting_url),
+            (("--atcoder=abc400", "--", other_url), conflicting_url),
+        ):
+            with self.subTest(args=invalid_args):
+                result = run_ojp(*invalid_args)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, b"")
+                self.assertIn(message, result.stderr)
+
+    def test_installed_ojp_help_includes_atcoder_and_oj_prepare_options(self) -> None:
+        destination, environment, _commit = self.prepare_installer()
+        self.assert_success(self.run_installer(destination, environment))
+
+        uv = self.root.parent / "commands/uv"
+        uv.write_text(
+            '#!/bin/sh\n[ "$1" = run ] && [ "$2" = oj-prepare ] || exit 2\nshift 2\n'
+            f"exec {shlex.quote(sys.executable)} -c "
+            "'import sys; from onlinejudge_prepare.main import main; "
+            'sys.argv[0] = "oj-prepare"; main()\' "$@"\n',
+            encoding="utf-8",
+        )
+        ojp = destination / "scripts/ojp"
+        for args, columns in (
+            (("--help",), "80"),
+            (("--help",), "24"),
+            (("--help",), "23"),
+            (("--help",), "12"),
+            (("--help",), "1"),
+            (("-h",), "80"),
+            (("--verbose", "--help"), "80"),
+            (("-hv",), "80"),
+            (("-vvh",), "80"),
+            (("--hel",), "80"),
+        ):
+            with self.subTest(args=args, columns=columns):
+                result = subprocess.run(
+                    [str(ojp), *args],
+                    cwd=self.root,
+                    env={**environment, "COLUMNS": columns},
+                    capture_output=True,
+                    check=False,
+                )
+                self.assert_success(result)
+                self.assertRegex(result.stdout.splitlines()[0], rb"^usage: ojp(?: |$)")
+                self.assertIn(b"{url | --atcoder CONTEST_ID}", result.stdout)
+                _, options = result.stdout.split(b"\noptions:\n", maxsplit=1)
+                self.assertIn(b"\n  --config-file", options)
+                self.assertIn(b"\n  --atcoder CONTEST_ID", options)
+
     def test_generated_templates_pin_commit_and_keep_original_url(self) -> None:
         import tomllib
 

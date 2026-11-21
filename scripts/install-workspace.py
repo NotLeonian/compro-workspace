@@ -529,7 +529,84 @@ def main() -> None:
             workspace_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
             cd "$workspace_root"
 
-            exec uv run oj-prepare "$@"
+            show_help() {
+                "$@" | sed -E \\
+                    -e '1s/^usage: oj-prepare( |$)/usage: ojp\\1/' \\
+                    -e '1,/^$/s/ url$/ {url | --atcoder CONTEST_ID}/'
+                printf '  %-22s%s\\n' '--atcoder CONTEST_ID' \\
+                    'Use https://atcoder.jp/contests/CONTEST_ID as the URL.'
+            }
+
+            prepare_command=(uv run oj-prepare)
+            atcoder_contest_id=
+            has_url=false
+            while (( $# > 0 )); do
+                case "$1" in
+                    --)
+                        # The remaining arguments are positional in oj-prepare.
+                        if (( $# > 1 )); then
+                            has_url=true
+                        fi
+                        break
+                        ;;
+                    --atcoder|--atcoder=*)
+                        if [[ -n $atcoder_contest_id ]]; then
+                            echo 'error: --atcoder can only be specified once' >&2
+                            exit 2
+                        fi
+                        if [[ $1 == --atcoder ]]; then
+                            shift
+                            atcoder_contest_id=${1:-}
+                            if [[ $atcoder_contest_id == -* ]]; then
+                                atcoder_contest_id=
+                            fi
+                        else
+                            atcoder_contest_id=${1#*=}
+                        fi
+                        if [[ -z $atcoder_contest_id ]]; then
+                            echo 'error: --atcoder requires a contest ID' >&2
+                            exit 2
+                        fi
+                        if [[ ! $atcoder_contest_id =~ ^[A-Za-z0-9_][A-Za-z0-9_-]*$ ]]; then
+                            echo 'error: invalid AtCoder contest ID' >&2
+                            exit 2
+                        fi
+                        prepare_command+=("https://atcoder.jp/contests/$atcoder_contest_id")
+                        shift
+                        continue
+                        ;;
+                    -?*)
+                        # A short option group can include -h after any number of -v flags.
+                        if [[ $1 =~ ^-v*h || ( $1 == --h* && --help == "$1"* ) ]]; then
+                            show_help "${prepare_command[@]}" "$@"
+                            exit 0
+                        fi
+                        # Keep separate values with -c (including -vc) and the
+                        # unambiguous prefixes of --cookie and --config-file.
+                        if [[ $1 =~ ^-v*c$ ||
+                              ( $1 == --coo* && --cookie == "$1"* ) ||
+                              ( $1 == --con* && --config-file == "$1"* ) ]]; then
+                            if (( $# < 2 )) || [[ $2 == -- ]]; then
+                                break
+                            fi
+                            prepare_command+=("$1" "$2")
+                            shift 2
+                            continue
+                        fi
+                        ;;
+                    *)
+                        has_url=true
+                        ;;
+                esac
+                prepare_command+=("$1")
+                shift
+            done
+
+            if [[ -n $atcoder_contest_id && $has_url == true ]]; then
+                echo 'error: specify either a URL or --atcoder, not both' >&2
+                exit 2
+            fi
+            exec "${prepare_command[@]}" "$@"
             """
         ),
     )
