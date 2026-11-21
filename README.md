@@ -75,6 +75,11 @@ cd ../..
 > なお、インストール後に `uv sync --no-dev --python pypy3.11` を実行することで、PyPy と相性の悪い Mypy などを避けて環境を作成し、キャッシュすることができる。
 
 その後、問題を解くワークスペースのルートで `oj-prepare` またはそのラッパー `./scripts/ojp` を実行できる。
+AtCoder のコンテストについては、URL の代わりに `--atcoder` とコンテスト ID を指定できる。
+たとえば、`./scripts/ojp --atcoder abc400` は `./scripts/ojp https://atcoder.jp/contests/abc400` と同じように動作する。
+`--atcoder` オプションは `oj-prepare` 本来のオプションの間にも記述できる。
+たとえば、`./scripts/ojp --verbose --atcoder abc400 --config-file prepare.toml` と書ける。
+`./scripts/ojp --help` で使えるオプションを確認できる。
 
 提出用の C++ ソースコードのテンプレートは生成 AI を使用して作成しているため、生成する `main.cpp` と `naive.cpp` の先頭に出典の URL を付ける。
 URL は `https://github.com/NotLeonian/compro-workspace/blob/<コミットSHA>/templates/main.cpp` とし、

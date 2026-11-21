@@ -529,7 +529,51 @@ def main() -> None:
             workspace_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
             cd "$workspace_root"
 
-            exec uv run oj-prepare "$@"
+            show_help() {
+                uv run oj-prepare --help | sed \\
+                    -e '1s/^usage: oj-prepare /usage: ojp /' \\
+                    -e '1,/^$/s/ url$/ {url | --atcoder CONTEST_ID}/'
+                printf '  %-22s%s\\n' '--atcoder CONTEST_ID' \\
+                    'Use https://atcoder.jp/contests/CONTEST_ID as the URL.'
+            }
+
+            prepare_command=(uv run oj-prepare)
+            atcoder_contest_id=
+            while (( $# > 0 )); do
+                case "$1" in
+                    -h|--help)
+                        show_help
+                        exit 0
+                        ;;
+                    --atcoder)
+                        if [[ -n $atcoder_contest_id ]]; then
+                            echo 'error: --atcoder can only be specified once' >&2
+                            exit 2
+                        fi
+                        atcoder_contest_id=${2:-}
+                        if [[ -z $atcoder_contest_id || $atcoder_contest_id == -* ]]; then
+                            echo 'error: --atcoder requires a contest ID' >&2
+                            exit 2
+                        fi
+                        prepare_command+=("https://atcoder.jp/contests/$atcoder_contest_id")
+                        shift 2
+                        ;;
+                    -c|--cookie|--config-file)
+                        # Keep oj-prepare's options and their values together.
+                        if (( $# < 2 )); then
+                            break
+                        fi
+                        prepare_command+=("$1" "$2")
+                        shift 2
+                        ;;
+                    *)
+                        prepare_command+=("$1")
+                        shift
+                        ;;
+                esac
+            done
+
+            exec "${prepare_command[@]}" "$@"
             """
         ),
     )
