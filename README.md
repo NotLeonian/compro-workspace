@@ -77,6 +77,8 @@ cd ../..
 その後、問題を解くワークスペースのルートで `oj-prepare` またはそのラッパー `./scripts/ojp` を実行できる。
 AtCoder のコンテストについては、URL の代わりに `--atcoder` とコンテスト ID を指定できる。
 たとえば、`./scripts/ojp --atcoder abc400` は `./scripts/ojp https://atcoder.jp/contests/abc400` と同じように動作する。
+`--atcoder=abc400` とも書ける。
+コンテスト ID には英数字、ハイフン、アンダースコアを使える。先頭にハイフンは使えない。
 `--atcoder` オプションは `oj-prepare` 本来のオプションの間にも記述できる。
 たとえば、`./scripts/ojp --verbose --atcoder abc400 --config-file prepare.toml` と書ける。
 `./scripts/ojp --help` で使えるオプションを確認できる。

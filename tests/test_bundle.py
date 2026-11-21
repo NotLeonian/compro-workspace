@@ -623,8 +623,14 @@ class BundleTests(unittest.TestCase):
         config_file = ("--config-file", "config with spaces.toml")
         cookie = ("-c", "cookie with spaces.txt")
         options = (*config_file, "--future-option")
+        other_url = "https://atcoder.jp/contests/abc401"
         for args, expected in (
             (("--atcoder", "abc400"), (url,)),
+            (("--atcoder=abc400",), (url,)),
+            (
+                ("--atcoder=abc-400_test",),
+                ("https://atcoder.jp/contests/abc-400_test",),
+            ),
             (("--atcoder", "abc400", *options), (url, *options)),
             (("--verbose", "--atcoder", "abc400"), ("--verbose", url)),
             (
@@ -636,8 +642,19 @@ class BundleTests(unittest.TestCase):
             ((*options, url), (*options, url)),
             (("--config-file", "--atcoder", url), ("--config-file", "--atcoder", url)),
             (("-c", "--atcoder", url), ("-c", "--atcoder", url)),
+            (("-vc", "--atcoder", "abc400"), ("-vc", "--atcoder", "abc400")),
+            (("--cook", "--atcoder", "abc400"), ("--cook", "--atcoder", "abc400")),
+            (("--con", "--atcoder", "abc400"), ("--con", "--atcoder", "abc400")),
+            (("--cook", "--help", url), ("--cook", "--help", url)),
+            (("-vch", "--atcoder=abc400"), ("-vch", url)),
+            (("-vc", other_url, "--atcoder=abc400"), ("-vc", other_url, url)),
+            (("--con", other_url, "--atcoder=abc400"), ("--con", other_url, url)),
             (("--", url), ("--", url)),
-            (("--", "--atcoder", "abc400"), ("--", url)),
+            (("--", "--atcoder", "abc400"), ("--", "--atcoder", "abc400")),
+            (("--", "--atcoder=abc400"), ("--", "--atcoder=abc400")),
+            (("--", "--help"), ("--", "--help")),
+            (("--", "-h"), ("--", "-h")),
+            (("-c", "--", "--atcoder=abc400"), ("-c", "--", "--atcoder=abc400")),
             ((), ()),
         ):
             with self.subTest(args=args):
@@ -649,14 +666,27 @@ class BundleTests(unittest.TestCase):
                 )
 
         missing_id = b"--atcoder requires a contest ID"
+        invalid_id = b"invalid AtCoder contest ID"
+        duplicate_id = b"--atcoder can only be specified once"
+        conflicting_url = b"specify either a URL or --atcoder, not both"
         for invalid_args, message in (
             (("--atcoder",), missing_id),
             (("--atcoder", ""), missing_id),
             (("--atcoder", "--verbose"), missing_id),
+            (("--atcoder=",), missing_id),
+            (("--atcoder", "abc400/tasks/abc400_a"), invalid_id),
+            (("--atcoder", "abc 400"), invalid_id),
+            (("--atcoder=abc400?x=1",), invalid_id),
+            (("--atcoder=-abc400",), invalid_id),
             (
                 ("--atcoder", "abc400", "--verbose", "--atcoder", "abc401"),
-                b"--atcoder can only be specified once",
+                duplicate_id,
             ),
+            (("--atcoder", "abc400", "--atcoder=abc401"), duplicate_id),
+            (("--atcoder=abc400", "--atcoder", "abc401"), duplicate_id),
+            ((other_url, "--atcoder", "abc400"), conflicting_url),
+            (("--atcoder=abc400", other_url), conflicting_url),
+            (("--atcoder=abc400", "--", other_url), conflicting_url),
         ):
             with self.subTest(args=invalid_args):
                 result = run_ojp(*invalid_args)
@@ -677,7 +707,14 @@ class BundleTests(unittest.TestCase):
             encoding="utf-8",
         )
         ojp = destination / "scripts/ojp"
-        for args in (("--help",), ("-h",), ("--verbose", "--help")):
+        for args in (
+            ("--help",),
+            ("-h",),
+            ("--verbose", "--help"),
+            ("-hv",),
+            ("-vvh",),
+            ("--hel",),
+        ):
             with self.subTest(args=args):
                 result = subprocess.run(
                     [str(ojp), *args],
